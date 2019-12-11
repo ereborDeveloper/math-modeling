@@ -1,6 +1,7 @@
 package modeling.mathmodeling;
 
 import modeling.mathmodeling.service.ParseService;
+import modeling.mathmodeling.util.MatrixUtil;
 import org.hipparchus.linear.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -203,7 +204,12 @@ class MathModelingApplicationTests {
 
         terms.forEach((oldKey, value) -> {
             String newKey = util.eval("ExpandAll(" + parseService.expandAllDegrees(oldKey) + ")").toString();
+            if(newKey.contains("E"))
+            {
+                System.out.println("cde");
+            }
             if (newKey.contains("e7")) {
+                System.out.println("abc");
                 newKey = newKey.replace("e7", "10^7");
             }
             expandedTerms.put(newKey, value);
@@ -278,88 +284,94 @@ class MathModelingApplicationTests {
         }
 
         // Искомые коэффициенты
-        Double[] grail = new Double[coefficients.size()];
-        Double[] computedGradient = new Double[gradient.size()];
-        Double[] computedHessian = new Double[hessian.size()];
+        double[] grail = new double[coefficients.size()];
+        double[] computedGradient = new double[gradient.size()];
+        double[][] computedHessian = new double[gradient.size()][gradient.size()];
+        double[][] invertedComputedHessian = new double[gradient.size()][gradient.size()];
+
         // Зануляем
         for (int l = 0; l < grail.length; l++) {
             grail[l] = 0.0;
         }
-
-        // Вычисляем значение градиента при коэффициентах
         Double q = 0.0;
-        int currentGradientIndex = 0;
-        for (String value : gradient.values()) {
-            int currentCoefIndex = 0;
-            value = value.replace("q", q.toString());
-            for (String coef : coefficients) {
-                value = value.replace(coef, grail[currentCoefIndex].toString());
-                currentCoefIndex++;
-            }
-            computedGradient[currentGradientIndex] = Double.parseDouble(util.eval("N(" + value + ")").toString());
-            currentGradientIndex++;
-        }
-        int l = 0;
-        for (String value : gradient.values()) {
-            System.out.println(value);
-            System.out.println(computedGradient[l]);
-            l++;
-        }
-        System.out.println(gradient);
-        System.out.println(Arrays.toString(computedGradient));
-
-        int currentHessianIndex = 0;
-        for (String value : hessian.values()) {
-            int currentCoefIndex = 0;
-            value = value.replace("q", q.toString());
-            for (String coef : coefficients) {
-                value = value.replace(coef, grail[currentCoefIndex].toString());
-                currentCoefIndex++;
-            }
-            computedHessian[currentHessianIndex] = Double.parseDouble(util.eval("N(" + value + ")").toString());
-            currentHessianIndex++;
-        }
-        l = 0;
-        for (String value : hessian.values()) {
-            System.out.println(value);
-            System.out.println(computedHessian[l]);
-            l++;
-        }
-
-        System.out.println(hessian);
-        System.out.println(Arrays.toString(computedHessian));
-
-
-        // Считаем обратную матрицу Гесса
-        Double[] rhs = new Double[computedGradient.length];
-        Arrays.fill(rhs, 1.0);
-        RealMatrix matrix = new Array2DRowRealMatrix(computedHessian);
-        System.out.println("matrix: " + matrix);
-        DecompositionSolver solver = new LUDecompositionImpl(matrix).getSolver();
-
-        RealVector b = new ArrayRealVector(rhs);
-        RealVector x = solver.solve(b);
-        System.out.println("solution x: " + x);
-        ;
-        RealVector residual = matrix.operate(x).subtract(b);
-        double rnorm = residual.getLInfNorm();
-        System.out.println("residual: " + rnorm);
-
         while (q < 4) {
-            ArrayList<Double> arrayList = new ArrayList<>();
+            // Вычисляем значение градиента при коэффициентах
+
+            int currentGradientIndex = 0;
+            for (String value : gradient.values()) {
+                int currentCoefIndex = 0;
+                value = value.replace("q", q.toString());
+                for (String coef : coefficients) {
+                    value = value.replace(coef, String.valueOf(grail[currentCoefIndex]));
+                    currentCoefIndex++;
+                }
+                if(value.contains("E"))
+                {
+                    // TODO: Написать преобразование
+                    System.out.println("haha");
+                }
+                computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(value).toString());
+                currentGradientIndex++;
+            }
+            int l = 0;
+            for (String value : gradient.values()) {
+//            System.out.println(value);
+//            System.out.println(computedGradient[l]);
+                l++;
+            }
+//        System.out.println(gradient);
+//        System.out.println(Arrays.toString(computedGradient));
+
+            int currentHessianI = 0;
+            for (String vi : coefficients) {
+                int currentHessianJ = 0;
+                for (String vj : coefficients) {
+                    int currentCoefIndex = 0;
+                    String value = hessian.get(vi + "|" + vj);
+                    value = value.replace("q", q.toString());
+                    for (String coef : coefficients) {
+                        value = value.replace(coef, String.valueOf(grail[currentCoefIndex]));
+                        currentCoefIndex++;
+                    }
+                    computedHessian[currentHessianI][currentHessianJ] = Double.parseDouble(util.eval("N(" + value + ")").toString());
+                    currentHessianJ++;
+                }
+                currentHessianI++;
+            }
+
+//            System.out.println(hessian);
+//            System.out.println(Arrays.toString(computedHessian));
+
+            invertedComputedHessian = MatrixUtil.invert(computedHessian);
+
+            for (int t = 0; t < grail.length; t++) {
+                grail[t] = grail[t] - MatrixUtil.multiply(invertedComputedHessian, computedGradient)[t];
+            }
+
+            System.out.println("Коэффициенты:" + Arrays.toString(grail));
+
 //        double difference
 //        System.out.println(jacobi);
 //        System.out.println(hessian);
-
 //        System.out.println(util.eval("D("+afterIntegrate+", u11())"));
             q += 0.01;
         }
+
     }
 
     @Test
     void pars() {
         String in = "N(1.1100751114986032E7, 7)*Cos(1.1635528346628865*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)*Cos(1.7453292519943295*x)*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)*w22()*w23()*w31()*w32()";
         System.out.println(util.eval("(" + in + ")"));
+    }
+
+    @Test
+    void e()
+    {
+        String i = "12.07E7";
+        int eIndex = i.indexOf("e");
+        System.out.println(util.eval("Round("+i+", 0.00001)"));
+//        i.matches("")
     }
 
 }
