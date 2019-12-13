@@ -10,4 +10,8 @@ public interface ParseService {
     String expandAllDegrees(String input);
 
     Boolean isSign(Character character);
+
+    String eReplace(String input);
+
+    String eReplaceAll(String input);
 }

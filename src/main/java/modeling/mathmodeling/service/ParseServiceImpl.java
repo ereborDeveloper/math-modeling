@@ -14,12 +14,16 @@ public class ParseServiceImpl implements ParseService {
         input = input.replaceAll(" ", "");
         int beginIndex = 0;
         int endIndex;
-        Character lastSign = input.charAt(0);
-        if (lastSign != '+' && lastSign != '-') {
-            lastSign = '+';
+        Character carriage = input.charAt(0);
+        if (carriage != '+' && carriage != '-') {
+            carriage = '+';
+        }
+        if(carriage == '-')
+        {
+            beginIndex++;
         }
         for (int i = 1; i < input.length(); i++) {
-            if (input.charAt(i) == '+' || (input.charAt(i) == '-' && input.charAt(i - 1) != '(') || i == input.length() - 1) {
+            if (input.charAt(i) == '+' || (input.charAt(i) == '-' && input.charAt(i - 1) != '(' && input.charAt(i - 1) != 'E' && input.charAt(i - 1) != '*') || i == input.length() - 1) {
                 if (i == input.length() - 1) {
                     output = input.substring(beginIndex);
                 } else {
@@ -34,7 +38,7 @@ public class ParseServiceImpl implements ParseService {
                         currentValue = Integer.parseInt(signAndValue.substring(1, signAndValue.length() - 1));
                     }
                     Character firstSign = signAndValue.charAt(0);
-                    if (lastSign == firstSign) {
+                    if (carriage == firstSign) {
                         currentValue++;
                     } else {
                         currentValue--;
@@ -42,13 +46,13 @@ public class ParseServiceImpl implements ParseService {
                     if (currentValue == 0) {
                         terms.remove(output);
                     } else {
-                        String newSign = lastSign.toString() + currentValue + "*";
+                        String newSign = carriage.toString() + currentValue + "*";
                         terms.put(output, newSign);
                     }
                 } else {
-                    terms.put(output, lastSign.toString());
+                    terms.put(output, carriage.toString());
                 }
-                lastSign = input.charAt(i);
+                carriage = input.charAt(i);
                 beginIndex = i + 1;
             }
         }
@@ -141,5 +145,51 @@ public class ParseServiceImpl implements ParseService {
             default:
                 return false;
         }
+    }
+
+    @Override
+    public String eReplace(String input) {
+        String output = "*";
+        String temp = input.toLowerCase();
+        Boolean negative = false;
+        int eIndex = temp.indexOf("e");
+        if (eIndex == -1) {
+            return input;
+        }
+        int carriage = eIndex + 1;
+        if (temp.charAt(carriage) == '-') {
+            carriage++;
+            negative = true;
+        }
+        while (!(isSign(temp.charAt(carriage)) || temp.charAt(carriage) == ')' || temp.charAt(carriage) == '^')) {
+            carriage++;
+            if (carriage == temp.length()) {
+                break;
+            }
+        }
+        int value = Math.abs(Integer.parseInt(temp.substring(eIndex + 1, carriage)));
+        if (negative) {
+            output += "0.";
+            for (int i = 1; i <= value; i++) {
+                output += "0";
+            }
+            output += "1";
+        } else {
+            output += "1";
+            for (int i = 0; i < value; i++) {
+                output += "0";
+            }
+        }
+
+        return input.substring(0, eIndex) + output + input.substring(carriage);
+    }
+
+    @Override
+    public String eReplaceAll(String input) {
+        while (input.contains("e") || input.contains("E"))
+        {
+            input = eReplace(input);
+        }
+        return input;
     }
 }

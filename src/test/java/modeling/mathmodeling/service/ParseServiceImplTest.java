@@ -18,6 +18,26 @@ class ParseServiceImplTest {
     ParseService parseService;
 
     @Test
+    void getTerms_whenFirstMinus_thenReadAsTerm(){
+        String in = "-x-2*x";
+        HashMap<String, String> expected = new HashMap<>();
+        expected.put("x", "-");
+        expected.put("2*x", "-");
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
+    void getTerms_whenE_thenPass(){
+        String in = "-2.078E-10-2*x";
+        HashMap<String, String> expected = new HashMap<>();
+        expected.put("2.078E-10", "-");
+        expected.put("2*x", "-");
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
     void getTerms_whenDifferentTerms_thenSaveSigns() {
         String in = "1 + x - Sin(x^2) + 7a - 7";
         HashMap<String, String> expected = new HashMap<>();
@@ -81,5 +101,30 @@ class ParseServiceImplTest {
         for (int i = 0; i < notSigns.length(); i++) {
             assertFalse(parseService.isSign(notSigns.charAt(i)));
         }
+    }
+
+    @Test
+    void eReplacer() {
+        String in = "10";
+        assertEquals("10", parseService.eReplace(in));
+
+        in = "e7";
+        assertEquals("*10000000", parseService.eReplace(in));
+
+        in = "e-7";
+        assertEquals("*0.00000001", parseService.eReplace(in));
+
+        in = "0.12456e2";
+        assertEquals("0.12456*100", parseService.eReplace(in));
+
+        in = "0.12456e3*Sin(x)";
+        assertEquals("0.12456*1000*Sin(x)", parseService.eReplace(in));
+    }
+
+
+    @Test
+    void eReplaceAll() {
+        String in = "1.18125*0.0*1.4224746001982408E-6*-7.494504917414604E-11";
+        assertEquals("1.18125*0.0*1.4224746001982408*0.0000001*-7.494504917414604*0.000000000001", parseService.eReplaceAll(in));
     }
 }

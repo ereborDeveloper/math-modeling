@@ -2,7 +2,6 @@ package modeling.mathmodeling;
 
 import modeling.mathmodeling.service.ParseService;
 import modeling.mathmodeling.util.MatrixUtil;
-import org.hipparchus.linear.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.matheclipse.core.eval.ExprEvaluator;
@@ -34,7 +33,7 @@ class MathModelingApplicationTests {
         int threads = Runtime.getRuntime().availableProcessors();
 
         IExpr result;
-        int n = 2;
+        int n = 3;
         int precision = 7;
 
         int N = (int) Math.pow(n, 2);
@@ -43,8 +42,8 @@ class MathModelingApplicationTests {
 
         // Аппроксимирующие функции
         for (int i = 1; i <= 5; i++) {
-            util.eval("x" + i + "(i_) := Sin(N(i * Pi * x / a, " + precision + "))");
-            util.eval("y" + i + "(i_) := Sin(N(i * Pi * x / b, " + precision + "))");
+            util.eval("x" + i + "(i_) := Sin(i * Pi * x / a)");
+            util.eval("y" + i + "(i_) := Cos(i * Pi * x / b)");
         }
 
         String U = "";
@@ -200,18 +199,13 @@ class MathModelingApplicationTests {
 
         HashMap<String, String> expandedTerms = new HashMap<>();
 
+        System.out.println(expandedTerms);
+
         System.out.println("Преобразование слагаемых");
 
         terms.forEach((oldKey, value) -> {
             String newKey = util.eval("ExpandAll(" + parseService.expandAllDegrees(oldKey) + ")").toString();
-            if(newKey.contains("E"))
-            {
-                System.out.println("cde");
-            }
-            if (newKey.contains("e7")) {
-                System.out.println("abc");
-                newKey = newKey.replace("e7", "10^7");
-            }
+            newKey = parseService.eReplace(newKey);
             expandedTerms.put(newKey, value);
         });
 
@@ -242,10 +236,11 @@ class MathModelingApplicationTests {
             if (!splitStatement.isEmpty()) {
                 String key = String.join("*", splitStatement);
                 if (!computedIntegrals.containsKey(key)) {
-//                    System.out.println("Key: " + key);
-                    result = util.eval("NIntegrate(" + key + ",{x, a1, a}, PrecisionGoal->" + precision + ")");
-                    computedIntegrals.put(key, result.toString());
-                    parsedResult += "*(" + result.toString() + ")";
+                    System.out.println("Key: " + key);
+                    result = util.eval("NIntegrate(" + key + ",{x, a1, a})");
+                    String writeableResult = parseService.eReplace(result.toString());
+                    computedIntegrals.put(key, writeableResult);
+                    parsedResult += "*(" + writeableResult + ")";
                 } else {
                     parsedResult = computedIntegrals.get(key);
                 }
@@ -271,107 +266,107 @@ class MathModelingApplicationTests {
         HashMap<String, String> gradient = new HashMap<>();
         for (String coef : coefficients) {
             // TODO: Разбить и на многопоточность
-            String tempD = util.eval("D(" + afterIntegrate + ", " + coef + ")").toString();
+            String tempD = parseService.eReplace(util.eval("D(" + afterIntegrate + ", " + coef + ")").toString());
 //            System.out.println(tempD);
             gradient.put(coef, tempD);
         }
         HashMap<String, String> hessian = new HashMap<>();
         for (String key : gradient.keySet()) {
             for (String coef : coefficients) {
-                String tempD = util.eval("D(" + gradient.get(key) + ", " + coef + ")").toString();
+                String tempD = parseService.eReplace(util.eval("D(" + gradient.get(key) + ", " + coef + ")").toString());
                 hessian.put(key + "|" + coef, tempD);
             }
         }
 
         // Искомые коэффициенты
         double[] grail = new double[coefficients.size()];
-        double[] computedGradient = new double[gradient.size()];
-        double[][] computedHessian = new double[gradient.size()][gradient.size()];
-        double[][] invertedComputedHessian = new double[gradient.size()][gradient.size()];
 
-        // Зануляем
-        for (int l = 0; l < grail.length; l++) {
-            grail[l] = 0.0;
-        }
+
         Double q = 0.0;
-        while (q < 4) {
+        Double eps = 0.0000001;
+
+        while (q < 3.2) {
             // Вычисляем значение градиента при коэффициентах
-
-            int currentGradientIndex = 0;
-            for (String value : gradient.values()) {
-                int currentCoefIndex = 0;
-                value = value.replace("q", q.toString());
-                for (String coef : coefficients) {
-                    value = value.replace(coef, String.valueOf(grail[currentCoefIndex]));
-                    currentCoefIndex++;
-                }
-                if(value.contains("E"))
-                {
-                    // TODO: Написать преобразование
-                    System.out.println("haha");
-                }
-                computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(value).toString());
-                currentGradientIndex++;
+            // Зануляем
+            boolean firstStep = true;
+            for (int l = 0; l < grail.length; l++) {
+                grail[l] = 0.0;
             }
-            int l = 0;
-            for (String value : gradient.values()) {
-//            System.out.println(value);
-//            System.out.println(computedGradient[l]);
-                l++;
-            }
-//        System.out.println(gradient);
-//        System.out.println(Arrays.toString(computedGradient));
+            Double max = 10.0;
+            while(max > eps) {
+                double[] computedGradient = new double[gradient.size()];
+                double[][] computedHessian = new double[gradient.size()][gradient.size()];
+                double[][] invertedComputedHessian = new double[gradient.size()][gradient.size()];
 
-            int currentHessianI = 0;
-            for (String vi : coefficients) {
-                int currentHessianJ = 0;
-                for (String vj : coefficients) {
+                int currentGradientIndex = 0;
+                for (String value : gradient.values()) {
                     int currentCoefIndex = 0;
-                    String value = hessian.get(vi + "|" + vj);
                     value = value.replace("q", q.toString());
                     for (String coef : coefficients) {
                         value = value.replace(coef, String.valueOf(grail[currentCoefIndex]));
                         currentCoefIndex++;
                     }
-                    computedHessian[currentHessianI][currentHessianJ] = Double.parseDouble(util.eval("N(" + value + ")").toString());
-                    currentHessianJ++;
+                    computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(parseService.eReplaceAll(value)).toString());
+                    currentGradientIndex++;
                 }
-                currentHessianI++;
+
+                int currentHessianI = 0;
+                for (String vi : coefficients) {
+                    int currentHessianJ = 0;
+                    for (String vj : coefficients) {
+                        int currentCoefIndex = 0;
+                        String value = hessian.get(vi + "|" + vj);
+                        value = value.replace("q", q.toString());
+                        for (String coef : coefficients) {
+                            value = value.replace(coef, String.valueOf(grail[currentCoefIndex]));
+                            currentCoefIndex++;
+                        }
+                        computedHessian[currentHessianI][currentHessianJ] = Double.parseDouble(util.eval(parseService.eReplaceAll(value)).toString());
+                        currentHessianJ++;
+                    }
+                    currentHessianI++;
+                }
+                invertedComputedHessian = MatrixUtil.invert(computedHessian);
+                Double maxDifferenceInLoop = 0.0;
+                for (int t = 0; t < grail.length; t++) {
+                    Double temp = Math.abs(grail[t]);
+                    grail[t] = grail[t] - MatrixUtil.multiply(invertedComputedHessian, computedGradient)[t];
+                    temp = Math.abs(Math.abs(grail[t]) - temp);
+                    if (temp>maxDifferenceInLoop)
+                    {
+                        maxDifferenceInLoop = temp;
+                    }
+                }
+                System.out.println(Arrays.toString(grail));
+                System.out.println(maxDifferenceInLoop + "|" + max);
+
+                if (maxDifferenceInLoop < max && !firstStep) {
+                    max = maxDifferenceInLoop;
+                }
+
+                firstStep = false;
             }
-
-//            System.out.println(hessian);
-//            System.out.println(Arrays.toString(computedHessian));
-
-            invertedComputedHessian = MatrixUtil.invert(computedHessian);
-
-            for (int t = 0; t < grail.length; t++) {
-                grail[t] = grail[t] - MatrixUtil.multiply(invertedComputedHessian, computedGradient)[t];
-            }
-
-            System.out.println("Коэффициенты:" + Arrays.toString(grail));
-
-//        double difference
-//        System.out.println(jacobi);
-//        System.out.println(hessian);
-//        System.out.println(util.eval("D("+afterIntegrate+", u11())"));
+            System.out.println("Коэффициенты:" + q);
             q += 0.01;
         }
-
+        // Вывод W от q
     }
 
     @Test
     void pars() {
-        String in = "N(1.1100751114986032E7, 7)*Cos(1.1635528346628865*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)*Cos(1.7453292519943295*x)*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)*w22()*w23()*w31()*w32()";
+        String in = "1.18125*0.0*1.4224746001982408E-6*-7.494504917414604E-11";
         System.out.println(util.eval("(" + in + ")"));
     }
 
     @Test
-    void e()
-    {
-        String i = "12.07E7";
-        int eIndex = i.indexOf("e");
-        System.out.println(util.eval("Round("+i+", 0.00001)"));
-//        i.matches("")
-    }
+    void e() {
+        String in = "1.282601848200000000";
+        System.out.println(Double.parseDouble(in));
 
+    }
+    @Test
+    void symjaBug() {
+        String in = "0.1758368*0.4112540785271148*0.0*9.986163076795545E-11";
+        System.out.println(util.eval("(" + in + ")"));
+    }
 }
