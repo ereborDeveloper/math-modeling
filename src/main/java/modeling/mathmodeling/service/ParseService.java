@@ -1,5 +1,6 @@
 package modeling.mathmodeling.service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public interface ParseService {
@@ -14,4 +15,6 @@ public interface ParseService {
     String eReplace(String input);
 
     String eReplaceAll(String input);
+
+    ArrayList<String> splitAndSkipInsideBrackets(String input, Character splitBy);
 }

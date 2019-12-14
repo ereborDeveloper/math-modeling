@@ -10,17 +10,20 @@ public class ParseServiceImpl implements ParseService {
     @Override
     public HashMap<String, String> getTermsFromString(String input) {
         HashMap<String, String> terms = new HashMap<>();
-        String output = "";
+        String output;
         input = input.replaceAll(" ", "");
         int beginIndex = 0;
         int endIndex;
-        Character carriage = input.charAt(0);
-        if (carriage != '+' && carriage != '-') {
-            carriage = '+';
+        Character carriageCharacter = input.charAt(0);
+        if (carriageCharacter != '+' && carriageCharacter != '-') {
+            carriageCharacter = '+';
         }
-        if(carriage == '-')
-        {
+        if (carriageCharacter == '-') {
             beginIndex++;
+        }
+        if (input.length() == 1) {
+            terms.put(input, carriageCharacter.toString());
+            return terms;
         }
         for (int i = 1; i < input.length(); i++) {
             if (input.charAt(i) == '+' || (input.charAt(i) == '-' && input.charAt(i - 1) != '(' && input.charAt(i - 1) != 'E' && input.charAt(i - 1) != '*') || i == input.length() - 1) {
@@ -38,7 +41,7 @@ public class ParseServiceImpl implements ParseService {
                         currentValue = Integer.parseInt(signAndValue.substring(1, signAndValue.length() - 1));
                     }
                     Character firstSign = signAndValue.charAt(0);
-                    if (carriage == firstSign) {
+                    if (carriageCharacter == firstSign) {
                         currentValue++;
                     } else {
                         currentValue--;
@@ -46,13 +49,13 @@ public class ParseServiceImpl implements ParseService {
                     if (currentValue == 0) {
                         terms.remove(output);
                     } else {
-                        String newSign = carriage.toString() + currentValue + "*";
+                        String newSign = carriageCharacter.toString() + currentValue + "*";
                         terms.put(output, newSign);
                     }
                 } else {
-                    terms.put(output, carriage.toString());
+                    terms.put(output, carriageCharacter.toString());
                 }
-                carriage = input.charAt(i);
+                carriageCharacter = input.charAt(i);
                 beginIndex = i + 1;
             }
         }
@@ -66,7 +69,7 @@ public class ParseServiceImpl implements ParseService {
         input = input.replaceAll(" ", "");
         input = input.replaceAll("\n", "");
         String temp = input;
-        String toExpand = "";
+        String toExpand;
         int degree;
         int degreeIndex = input.indexOf("^");
         int closedCounter = 0;
@@ -78,7 +81,7 @@ public class ParseServiceImpl implements ParseService {
         // ^2.0)
         cutRightIndex = degreeIndex + 1;
         while (cutRightIndex < input.length()) {
-            Character symbol = input.charAt(cutRightIndex);
+            char symbol = input.charAt(cutRightIndex);
             if (isSign(symbol) || symbol == ')') {
                 break;
             }
@@ -92,7 +95,7 @@ public class ParseServiceImpl implements ParseService {
             closedCounter++;
             carriage--;
             while (closedCounter != 0) {
-                Character analysingChar = input.charAt(carriage);
+                char analysingChar = input.charAt(carriage);
                 if (analysingChar == '(') {
                     closedCounter--;
                 }
@@ -108,7 +111,7 @@ public class ParseServiceImpl implements ParseService {
 
         cutLeftIndex = carriage;
         while (cutLeftIndex > 0) {
-            Character symbol = input.charAt(cutLeftIndex - 1);
+            char symbol = input.charAt(cutLeftIndex - 1);
             if (isSign(symbol) || symbol == '(') {
                 break;
             }
@@ -151,7 +154,7 @@ public class ParseServiceImpl implements ParseService {
     public String eReplace(String input) {
         String output = "*";
         String temp = input.toLowerCase();
-        Boolean negative = false;
+        boolean negative = false;
         int eIndex = temp.indexOf("e");
         if (eIndex == -1) {
             return input;
@@ -186,10 +189,69 @@ public class ParseServiceImpl implements ParseService {
 
     @Override
     public String eReplaceAll(String input) {
-        while (input.contains("e") || input.contains("E"))
-        {
+        while (input.contains("e") || input.contains("E")) {
             input = eReplace(input);
         }
         return input;
+    }
+
+    @Override
+    public ArrayList<String> splitAndSkipInsideBrackets(String input, Character splitBy) {
+        input = input.replace(" ", "");
+        ArrayList<String> output = new ArrayList<>();
+        if (input.length() == 0) {
+            return output;
+        }
+        int splitIndex;
+        int openBracketsCount = 0;
+        String temp = "";
+        while (true) {
+            splitIndex = input.indexOf(splitBy);
+            if (splitIndex == -1) {
+                break;
+            }
+            int openBracketIndex = input.indexOf('(');
+            int closedBracketIndex = 0;
+            if (openBracketIndex > -1 && openBracketIndex < splitIndex) {
+                for (int i = openBracketIndex; i < input.length(); i++) {
+                    char analyzingChar = input.charAt(i);
+                    if (analyzingChar == ')') {
+                        closedBracketIndex = i;
+                        openBracketsCount--;
+                    }
+                    if (analyzingChar == '(') {
+                        openBracketsCount++;
+                    }
+                    if (openBracketsCount == 0) {
+                        break;
+                    }
+                }
+                // Если во входной строке не будет закрывающей скобки, будет ошибка
+                temp += input.substring(0, closedBracketIndex + 1);
+                input = input.substring(closedBracketIndex + 1);
+                splitIndex = input.indexOf(splitBy);
+                if (splitIndex == -1) {
+                    output.add(temp);
+                    return output;
+                }
+                if (splitIndex == 0) {
+                    output.add(temp);
+                    input = input.substring(1);
+                    temp = "";
+                    continue;
+                } else {
+                    output.add(temp + input.substring(0, splitIndex));
+                    input = input.substring(splitIndex + 1);
+                    temp = "";
+                    continue;
+                }
+            }
+            output.add(input.substring(0, splitIndex));
+            input = input.substring(splitIndex + 1);
+        }
+        if (input.length() > 0) {
+            output.add(input);
+        }
+        return output;
     }
 }

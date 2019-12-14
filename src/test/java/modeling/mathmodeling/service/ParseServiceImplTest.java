@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +19,16 @@ class ParseServiceImplTest {
     ParseService parseService;
 
     @Test
-    void getTerms_whenFirstMinus_thenReadAsTerm(){
+    void getTerms_whenOne() {
+        String in = "x";
+        HashMap<String, String> expected = new HashMap<>();
+        expected.put("x", "+");
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
+    void getTerms_whenFirstMinus_thenReadAsTerm() {
         String in = "-x-2*x";
         HashMap<String, String> expected = new HashMap<>();
         expected.put("x", "-");
@@ -28,7 +38,7 @@ class ParseServiceImplTest {
     }
 
     @Test
-    void getTerms_whenE_thenPass(){
+    void getTerms_whenE_thenPass() {
         String in = "-2.078E-10-2*x";
         HashMap<String, String> expected = new HashMap<>();
         expected.put("2.078E-10", "-");
@@ -119,6 +129,9 @@ class ParseServiceImplTest {
 
         in = "0.12456e3*Sin(x)";
         assertEquals("0.12456*1000*Sin(x)", parseService.eReplace(in));
+
+        in = "1.0021511423251277E7*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0";
+        assertEquals("1.0021511423251277*10000000*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0", parseService.eReplace(in));
     }
 
 
@@ -126,5 +139,55 @@ class ParseServiceImplTest {
     void eReplaceAll() {
         String in = "1.18125*0.0*1.4224746001982408E-6*-7.494504917414604E-11";
         assertEquals("1.18125*0.0*1.4224746001982408*0.0000001*-7.494504917414604*0.000000000001", parseService.eReplaceAll(in));
+    }
+
+    @Test
+    void splitAndSkip_whenBracketsEmbrace_thenDontSplit() {
+        String in = "(x*x)";
+        ArrayList<String> expected = new ArrayList<>();
+        expected.add("(x*x)");
+        assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
+    }
+
+    @Test
+    void splitAndSkip() {
+        String in = "x*x";
+        ArrayList<String> expected = new ArrayList<>();
+        expected.add("x");
+        expected.add("x");
+        assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
+    }
+
+    @Test
+    void splitAndSkip_whenBrackets_thenIgnore() {
+        String in = "x*Sin((x))*x+Cos(x)*Cos(x)";
+        ArrayList<String> expected = new ArrayList<>();
+        expected.add("x");
+        expected.add("Sin((x))");
+        expected.add("x+Cos(x)");
+        expected.add("Cos(x)");
+
+        assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
+
+        in = "sin(x*2)*cos(t^2*5x)";
+        expected = new ArrayList<>();
+        expected.add("sin(x*2)");
+        expected.add("cos(t^2*5x)");
+
+        assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
+
+        in = "Cos(0.5817764173314433*x)*Cos(0.5817764173314433*x)*Sin(0.5817764173314433*x)*Sin(0.5817764173314433*x)*Sin(0.5817764173314433*y)*Sin(0.5817764173314433*y)*Sin(0.5817764173314433*y)*Sin(0.5817764173314433*y)";
+        expected = new ArrayList<>();
+        expected.add("Cos(0.5817764173314433*x)");
+        expected.add("Cos(0.5817764173314433*x)");
+        expected.add("Sin(0.5817764173314433*x)");
+        expected.add("Sin(0.5817764173314433*x)");
+        expected.add("Sin(0.5817764173314433*y)");
+        expected.add("Sin(0.5817764173314433*y)");
+        expected.add("Sin(0.5817764173314433*y)");
+        expected.add("Sin(0.5817764173314433*y)");
+
+        assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
+
     }
 }
