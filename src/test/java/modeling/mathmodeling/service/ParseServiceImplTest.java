@@ -38,6 +38,16 @@ class ParseServiceImplTest {
     }
 
     @Test
+    void getTerms_whenFirstPlus_thenReadAsTerm() {
+        String in = "+x-2*x";
+        HashMap<String, String> expected = new HashMap<>();
+        expected.put("x", "+");
+        expected.put("2*x", "-");
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
     void getTerms_whenE_thenPass() {
         String in = "-2.078E-10-2*x";
         HashMap<String, String> expected = new HashMap<>();
@@ -107,7 +117,7 @@ class ParseServiceImplTest {
         for (int i = 0; i < signs.length(); i++) {
             assertTrue(parseService.isSign(signs.charAt(i)));
         }
-        String notSigns = "afb";
+        String notSigns = "1 = asdf";
         for (int i = 0; i < notSigns.length(); i++) {
             assertFalse(parseService.isSign(notSigns.charAt(i)));
         }

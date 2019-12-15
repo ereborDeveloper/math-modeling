@@ -15,11 +15,11 @@ public class ParseServiceImpl implements ParseService {
         int beginIndex = 0;
         int endIndex;
         Character carriageCharacter = input.charAt(0);
+        if (isSign(carriageCharacter)) {
+            beginIndex++;
+        }
         if (carriageCharacter != '+' && carriageCharacter != '-') {
             carriageCharacter = '+';
-        }
-        if (carriageCharacter == '-') {
-            beginIndex++;
         }
         if (input.length() == 1) {
             terms.put(input, carriageCharacter.toString());

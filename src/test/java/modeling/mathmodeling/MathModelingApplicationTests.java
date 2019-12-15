@@ -1,7 +1,8 @@
 package modeling.mathmodeling;
 
-import modeling.mathmodeling.service.IntegrateService;
+import modeling.mathmodeling.service.MathService;
 import modeling.mathmodeling.service.ParseService;
+import modeling.mathmodeling.storage.StaticStorage;
 import modeling.mathmodeling.util.MatrixUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
@@ -25,7 +27,7 @@ class MathModelingApplicationTests {
     ParseService parseService;
 
     @Autowired
-    IntegrateService integrateService;
+    MathService mathService;
 
     private ExprEvaluator util = new ExprEvaluator(true, 50000);
 
@@ -37,12 +39,11 @@ class MathModelingApplicationTests {
     void modeling() throws Exception {
         BufferedWriter writer = new BufferedWriter(new FileWriter("1.txt"));
 
-
         // TODO: Добавить выгрузку интегралов в файл и обнулять его только при действии пользователя
-        int threads = Runtime.getRuntime().availableProcessors();
+        int availableCores = Runtime.getRuntime().availableProcessors();
 
         IExpr result;
-        int n = 3;
+        int n = 4;
         int precision = 7;
 
         int N = (int) Math.pow(n, 2);
@@ -188,38 +189,82 @@ class MathModelingApplicationTests {
         double q0 = 0.01;
         double qsv = (1.34 * Math.pow(10, -2));
 
-//        System.out.println(util.eval("pre"));
+        System.out.println("Раскрываем скобки");
         result = util.eval("ExpandAll(pre)");
 
         System.out.println("Интегрирование по y");
         String body = result.toString().replace("\n", "");
-        writer.write(body);
-        writer.close();
-        String afterIntegrate = integrateService.partialIntegrate(util, body, "y", 0, b, "NIntegrate");
 
-        System.out.println(afterIntegrate);
-        //TODO: n=3 StackOverflow
-        afterIntegrate = parseService.eReplaceAll(afterIntegrate);
-        System.out.println(afterIntegrate);
+        // Перед интегрированием необходимо убедиться, что все скобки раскрыты
+        HashMap<String, String> terms = parseService.getTermsFromString(body);
+        HashMap<String, String> alreadyComputedIntegrals = new HashMap<>();
+        // TODO: Можно сделать выгрузку интегралов в файл
+
+        // Подготовка, раскрытие степени и удаление E
+        System.out.println("Сортировка");
+        HashMap<String, String> expandedTerms = new HashMap<>();
+        for (String term : terms.keySet()) {
+            String newKey = parseService.expandAllDegrees(parseService.eReplaceAll(term));
+            expandedTerms.put(newKey, terms.get(term));
+        }
+        System.out.println("Заполнили");
+        terms.clear();
+        System.out.println("Очистили");
+
+        int blockSize = expandedTerms.size() / availableCores;
+        // Интегрирование по Y
+        for (int i = 0; i < availableCores; i++) {
+            List<String> partialKeys;
+            if (i == availableCores - 1) {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
+            } else {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
+            }
+            HashMap<String, String> partialTerms = new HashMap<>();
+            for (String key : partialKeys) {
+                partialTerms.put(key, expandedTerms.get(key));
+            }
+            int threadNumber = i;
+            Thread thread = new Thread(() -> StaticStorage.integrateResult.add(mathService.partialIntegrate(threadNumber, partialTerms, "y", 0, b, "NIntegrate")));
+            thread.start();
+            StaticStorage.currentTask.put(i, thread);
+        }
+        while (StaticStorage.currentTask.size() > 0) {
+//            Thread.sleep(1000);
+//            System.out.println(StaticStorage.currentTask);
+        }
+        String afterIntegrate = "";
+
+        // Интегрирование по X
+        //TODO: Склеить строку, снова разбить на равные блоки, повторить
+//        writer.close();
+//        System.out.println(StaticStorage.integrateResult);
         System.exit(0);
-        afterIntegrate = util.eval("(" + afterIntegrate  + ")").toString().replace("\n", "");
-        System.out.println(afterIntegrate);
+
+//        expandedTerms = parseService.getTermsFromString(afterIntegrate.replace("\n", ""));
+
         System.out.println("Пробуем");
-        afterIntegrate = integrateService.partialIntegrate(util, afterIntegrate, "x", a1, a, "NIntegrate");
+//        afterIntegrate = mathService.partialIntegrate(util, expandedTerms, "x", a1, a, "NIntegrate");
+
+        System.out.println("Пробуем D");
 
         HashMap<String, String> gradient = new HashMap<>();
         for (String coef : coefficients) {
             // TODO: Разбить и на многопоточность
-            String tempD = parseService.eReplace(util.eval("D(" + afterIntegrate + ", " + coef + ")").toString()).replace("\n", "");
-            System.out.println(tempD);
+            System.out.println(afterIntegrate);
+            String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, afterIntegrate, coef)).toString().replace("\n", ""));
+//                    parseService.eReplace(util.eval("D(" + afterIntegrate + ", " + coef + ")").toString()).replace("\n", "");
+//            System.out.println(tempD);
             gradient.put(coef, tempD);
         }
         System.out.println("Hessian:");
         HashMap<String, String> hessian = new HashMap<>();
         for (String key : gradient.keySet()) {
             for (String coef : coefficients) {
-                String tempD = parseService.eReplace(util.eval("D(" + gradient.get(key) + ", " + coef + ")").toString()).replace("\n", "");
-                System.out.println(tempD);
+//                System.out.println(coef);
+//                System.out.println(gradient.get(key));
+                String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, gradient.get(key), coef)).toString().replace("\n", ""));
+//                System.out.println(tempD);
                 hessian.put(key + "|" + coef, tempD);
             }
         }
