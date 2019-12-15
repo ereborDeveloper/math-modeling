@@ -7,7 +7,6 @@ import modeling.mathmodeling.util.MatrixUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.matheclipse.core.basic.Config;
-import org.matheclipse.core.eval.EvalEngine;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.matheclipse.core.interfaces.IExpr;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +45,7 @@ class MathModelingApplicationTests {
         StaticStorage.availableCores = Runtime.getRuntime().availableProcessors();
 
         IExpr result;
-        int n = 1;
+        int n = 2;
         int precision = 7;
 
         int N = (int) Math.pow(n, 2);
@@ -56,14 +55,15 @@ class MathModelingApplicationTests {
         // Аппроксимирующие функции
 
         util.eval("x1(i_) := Sin(i * Pi * xx / a)");
-        util.eval("y1(i_) := Sin(i * Pi * yy / b)");
         util.eval("x2(i_) := Sin(i * Pi * xx / a)");
-        util.eval("y2(i_) := Sin(i * Pi * yy / b)");
         util.eval("x3(i_) := Sin(i * Pi * xx / a)");
-        util.eval("y3(i_) := Sin(i * Pi * yy / b)");
         util.eval("x4(i_) := Sin(i * Pi * xx / a)");
-        util.eval("y4(i_) := Sin(i * Pi * yy / b)");
         util.eval("x5(i_) := Sin(i * Pi * xx / a)");
+
+        util.eval("y1(i_) := Sin(i * Pi * yy / b)");
+        util.eval("y2(i_) := Sin(i * Pi * yy / b)");
+        util.eval("y3(i_) := Sin(i * Pi * yy / b)");
+        util.eval("y4(i_) := Sin(i * Pi * yy / b)");
         util.eval("y5(i_) := Sin(i * Pi * yy / b)");
 
         String U;
@@ -115,8 +115,9 @@ class MathModelingApplicationTests {
         util.eval("Theta2 := (-(D(W, yy) / B + ky * V))");
 
         // Деформация изменения
-        util.eval("eX := (D(U, xx) / A + D(A, yy) * V / (A * B) - kx * W + (Theta1 ^ 2) / 2)");
-        util.eval("eY := (D(V, yy) / B + D(B, xx) * U / (A * B) - ky * W + (Theta2 ^ 2) / 2)");
+        util.eval("eX := (D(U, xx) / A + D(A, yy) * V / (A * B) - kx * W + 0.5 * (Theta1 * Theta1))");
+        util.eval("eY := (D(V, yy) / B + D(B, xx) * U / (A * B) - ky * W + 0.5 * (Theta2 * Theta2))");
+
 
         // Кривизна кручения
         util.eval("gammaXY := (D(V, xx) / A + D(U, yy) / B - D(A, yy) * U / (A * B) - D(B, xx) * V / (A * B) + Theta1 * Theta2)");
@@ -125,29 +126,28 @@ class MathModelingApplicationTests {
 
         util.eval("Chi1 := (D(PsiX, xx) / A + D(A, yy) * PsiY / (A * B))");
         util.eval("Chi2 := (D(PsiY, yy) / B + D(B, xx) * PsiX / (A * B))");
-        util.eval("Chi12 := 1 / 2 * (D(PsiY, xx) / A  + D(PsiX, yy) / B - (D(A, yy) * PsiX + D(B, xx) * PsiY)/(A * B))");
+        util.eval("Chi12 := 0.5 * (D(PsiY, xx) / A  + D(PsiX, yy) / B - (D(A, yy) * PsiX + D(B, xx) * PsiY)/(A * B))");
 
 //        Усилия и моменты
         util.eval("MX := (E1 * h ^ 3 / (12 * (1 - mu12 * mu21)) * (Chi1 + mu21 * Chi2))");
         util.eval("MY := (E2 * h ^ 3 / (12 * (1 - mu12 * mu21)) * (Chi2 + mu12 * Chi1))");
         util.eval("MXY := (G * h ^ 3 / 6 * Chi12)");
         util.eval("MYX := MXY");
-        util.eval("NX := ((E1 * h / (1 - mu12 * mu21)) * (eX + mu21 * eY))");
-        util.eval("NY := ((E2 * h / (1 - mu12 * mu21)) * (eY + mu12 * eX))");
-        util.eval("NXY := (G * h * gammaXY)");
+        util.eval("NX := (E1 * h / (1 - mu12 * mu21)) * (eX + mu21 * eY)");
+        util.eval("NY := (E2 * h / (1 - mu12 * mu21)) * (eY + mu12 * eX)");
+        util.eval("NXY := G * h * gammaXY");
         util.eval("NYX := NXY");
 
         util.eval("PX := 0");
         util.eval("PY := 0");
 
-        util.eval("QX := (G * k * h * (PsiX - Theta1))");
-        util.eval("QY := (G * k * h * (PsiY - Theta2))");
+        util.eval("QX := G * (PsiX - Theta1) * k * h");
+        util.eval("QY := G * k * h * (PsiY - Theta2)");
 
-        util.eval("pre := ((" +
-                "(NX * ex + NY * ey + " +
-                "1 / 2 * (NXY + NYX) * gammaXY + MX * Chi1 + " +
-                "MY * Chi2 + (MXY + MYX) * Chi12 + " +
-                "QX * (PsiX - Theta1) + QY * (PsiY - Theta2) - q*W) * A * B))");
+        util.eval("pre := " +
+                "0.5 * (NX * eX + NY * eY + 0.5 * (NXY + NYX) * gammaXY + " +
+                "MX * Chi1 + MY * Chi2 + (MXY + MYX) * Chi12 + " +
+                "QX * (PsiX - Theta1) + QY * (PsiY - Theta2) - 2 * q * W) * A * B");
 
         double E1 = 2.1 * Math.pow(10, 5);
         double E2 = 2.1 * Math.pow(10, 5);
@@ -168,7 +168,7 @@ class MathModelingApplicationTests {
         double r = 225 * h;
         util.eval("r := " + r);
 
-        double k = 5 / 6;
+        double k = 0.83333333333333333333333;
         util.eval("k := " + k);
 
         double a = 60 * h;
@@ -180,7 +180,7 @@ class MathModelingApplicationTests {
         double b = 60 * h;
         util.eval("b := " + b);
 
-        double G = 0.3;
+        double G = 0.3 * Math.pow(10, 5);
         util.eval("G := " + G);
 
 //        Параметры Ляме
@@ -195,48 +195,44 @@ class MathModelingApplicationTests {
 
         double ky = 1 / r;
         util.eval("ky := " + ky);
-
         System.out.println("Expanding degrees");
-        String pre = parseService.expandAllDegrees(util.eval("pre").toString());
         System.out.println("Expanding brackets");
-        result = util.eval("ExpandAll(" + pre + ")");
+        result = util.eval("ExpandAll(pre)");
+        System.out.println(result);
 
         System.out.println("Starting..");
-        String body = result.toString().replace("\n", "");
+        String beforeIntegrate = result.toString();
 
-        writer.write(body + "\n\n");
-
-        HashMap<String, String> terms = parseService.getTermsFromString(body);
         // TODO: Integrals to file
-
         // Prepare, expand degree, replace E
         System.out.println("Sorting");
+        HashMap<String, String> terms = parseService.getTermsFromString(beforeIntegrate);
         HashMap<String, String> expandedTerms = new HashMap<>();
         for (String term : terms.keySet()) {
-            String newKey = parseService.expandAllDegrees(parseService.eReplaceAll(term));
-            expandedTerms.put(newKey, terms.get(term));
+            expandedTerms.put(parseService.eReplaceAll(term, 17), terms.get(term));
         }
-        writer.write(expandedTerms + "\n\n");
-
-        System.out.println("Filled");
-        terms.clear();
-        System.out.println("Cleared");
-
         // y integrate
-        String afterIntegrate = mathService.multithreadingIntegrate(expandedTerms, "yy", 0, b, "NIntegrate");
-        writer.write(afterIntegrate + "\n\n");
+        String afterIntegrate = mathService.multithreadingIntegrate(expandedTerms, "yy", 0.0, 5.4, "NIntegrate");
+        System.out.println(afterIntegrate);
         // prepare
-        expandedTerms = parseService.getTermsFromString(afterIntegrate.replace("\n", ""));
+        terms = parseService.getTermsFromString(afterIntegrate);
+        expandedTerms = new HashMap<>();
+        for (String term : terms.keySet()) {
+            expandedTerms.put(parseService.eReplaceAll(term, 17), terms.get(term));
+        }
         // x integrate
-        afterIntegrate = mathService.multithreadingIntegrate(expandedTerms, "xx", a1, a, "NIntegrate");
+        afterIntegrate = mathService.multithreadingIntegrate(terms, "xx", a1, a, "NIntegrate");
+        System.out.println(afterIntegrate);
 
-        writer.write(afterIntegrate);
-        writer.close();
+//        writer.write(util.eval("(ExpandAll(" + afterIntegrate + "))").toString());
+//        writer.close();
+
+//        writer.write(util.eval("ExpandAll(" + afterIntegrate + ")").toString().replace("\n",""));
 
         System.out.println("Gradient");
         HashMap<String, String> gradient = new HashMap<>();
         for (String coef : coefficients) {
-            String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, afterIntegrate, coef)).toString().replace("\n", ""));
+            String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, afterIntegrate, coef)).toString().replace("\n", ""), 10);
             System.out.println(tempD);
             gradient.put(coef, tempD);
         }
@@ -244,7 +240,7 @@ class MathModelingApplicationTests {
         HashMap<String, String> hessian = new HashMap<>();
         for (String key : gradient.keySet()) {
             for (String coef : coefficients) {
-                String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, gradient.get(key), coef)).toString().replace("\n", ""));
+                String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, gradient.get(key), coef)).toString().replace("\n", ""), 10);
                 System.out.println(tempD);
                 hessian.put(key + "|" + coef, tempD);
             }
@@ -278,7 +274,7 @@ class MathModelingApplicationTests {
                         currentCoefIndex++;
                     }
 //                    System.out.println(value);
-                    computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(parseService.eReplaceAll(value)).toString());
+//                    computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(parseService.eReplaceAll(value)).toString());
                     currentGradientIndex++;
                 }
 
@@ -293,7 +289,7 @@ class MathModelingApplicationTests {
                             value = value.replace(coef, String.valueOf(grail[currentCoefIndex]));
                             currentCoefIndex++;
                         }
-                        computedHessian[currentHessianI][currentHessianJ] = Double.parseDouble(util.eval(parseService.eReplaceAll(value)).toString());
+//                        computedHessian[currentHessianI][currentHessianJ] = Double.parseDouble(util.eval(parseService.eReplaceAll(value)).toString());
                         currentHessianJ++;
                     }
                     currentHessianI++;
@@ -323,6 +319,7 @@ class MathModelingApplicationTests {
                 firstStep = false;
             }
             System.out.println("Коэффициенты:" + q);
+            System.out.println(Arrays.toString(grail));
             q += 0.01;
         }
         // Вывод W от q
@@ -350,9 +347,74 @@ class MathModelingApplicationTests {
     }
 
     @Test
-    void p()
-    {
-        String in = "0.25059375*pi**2*psix11**2 + 9021.375*psix11**2 + 0.5011875*pi**2*psix11*psiy11 + 3341.25*pi*psix11*w11 - 0.0925925925925926*pi*psix11*(-18.9259615384615*pi*psix11 - 5.67778846153846*pi*psiy11) + 0.25059375*pi**2*psiy11**2 + 9021.375*psiy11**2 + 3341.25*pi*psiy11*w11 - 0.0925925925925926*pi*psiy11*(-5.67778846153846*pi*psix11 - 18.9259615384615*pi*psiy11) - 116.64*q*w11/pi**2 + 0.0362139917695473*u11**2*v11**2 + 0.169753086419753*pi**2*u11**2*w11**2 + 130.37037037037*u11**2*w11 + 142.004444444444*u11**2 + 371.25*pi**2*u11**2 + 0.169753086419753*pi**2*v11**2*w11**2 + 130.37037037037*v11**2*w11 + 142.004444444444*v11**2 + 371.25*pi**2*v11**2 + 0.795717592592592*pi**4*w11**4 + 3993.875*pi**2*w11**2 - 155525.76*w11/pi**2".replace("**", "^");
-        System.out.println( util.eval("ExpandAll(N(" +in + "))").toString().replace("\n",""));
+    void p() {
+        String in = "+4217.797935630384*u11*v11*\n" +
+                "-1.0*0.00000000000000001*-1.0*0.00000000000000001\n" +
+                "+201.9592377666776*v11*w11*w11*w11*0.0*2.025\n" +
+                "+4.954068632366608*5.3999999999999995*5.3999999999999995\n" +
+                "+8.839984188318734*u11*v11*v11*2.291831180523293*0.0\n" +
+                "+1.455128819059491*v11*v11*v11*w11*0.0*2.025\n" +
+                "+10.28578866069336*u11*v11*w11*w11*0.0*0.0\n" +
+                "+0.4365424290527769*u11*u11*v11*w11*0.0*2.025\n" +
+                "-3.2515368592186142*u11*u11*w11*2.291831180523293*2.291831180523293\n" +
+                "+594.8190540866145*w11*w11*w11*w11*2.0249999999999995*2.025\n" +
+                "+29.466358585954698*v11*v11*v11*0.0*2.291831180523293\n" +
+                "+0.030878792585172017*v11*v11*v11*v11*2.025*2.025\n" +
+                "-3.2515368592186142*v11*v11*w11*2.291831180523293*2.291831180523293\n" +
+                "+8.839984188318734*u11*u11*v11*0.0*2.291831180523293\n" +
+                "+416.57263561781565*u11*v11*w11*0.0*0.0\n" +
+                "+0.00913852259360126*u11*u11*2.6999999999999993*2.7\n" +
+                "+0.018527436120824654*u11*u11*v11*v11*2.025*2.025\n" +
+                "+694.2847174625837*v11*v11*w11*1.1459155902616465*2.291831180523293\n" +
+                "+25.714248794910503*v11*v11*w11*w11*0.675*2.025\n" +
+                "+694.2847174625837*u11*u11*w11*2.291831180523293*1.1459155902616465\n" +
+                "+0.4365424290527769*u11*v11*v11*w11*2.025*0.0\n" +
+                "+0.030878792585172017*u11*u11*u11*u11*2.025*2.025\n" +
+                "+4089.6745647752223*v11*w11*w11*0.0*2.291831180523293\n" +
+                "+60.58829642402148*u11*w11*w11*w11*0.675*0.0\n" +
+                "-1551.4037795505149*u11*w11*2.7*-1.0*0.00000000000000001\n" +
+                "+9.02570132701359*0.00001*u11*u11*w11*1.1459155902616465*2.291831180523293\n" +
+                "-q*w11*3.4377467707849396*3.4377467707849396\n" +
+                "+1226.9130025864351*v11*w11*w11*0.0*1.1459155902616465\n" +
+                "+2.571447165173339*v11*v11*w11*w11*2.025*0.675\n" +
+                "+4089.6745647752223*u11*w11*w11*2.291831180523293*0.0\n" +
+                "+7029.63276430866*v11*v11*2.6999999999999993*2.7\n" +
+                "+4.7450021159083455*psix11*psix11*2.7*2.6999999999999993\n" +
+                "+9.02570132701359*0.00001*v11*v11*w11*2.291831180523293*1.1459155902616465\n" +
+                "+29.466358585954698*u11*u11*u11*2.291831180523293*0.0\n" +
+                "+1.455128819059491*u11*u11*u11*w11*2.025*0.0\n" +
+                "-0.5376367280850891*psix11*psiy11*-1.0*0.00000000000000001*-1.0*0.00000000000000001\n" +
+                "+7029.63276430866*u11*u11*2.7*2.6999999999999993\n" +
+                "-76.61253232348221*v11*w11*w11*0.0*2.291831180523293\n" +
+                "+1226.9130025864351*u11*w11*w11*1.1459155902616465*0.0\n" +
+                "+2.571447165173339*u11*u11*w11*w11*0.675*2.025\n" +
+                "+25.714248794910503*u11*u11*w11*w11*2.025*0.675\n" +
+                "+356.89452551105*w11*w11*w11*w11*0.675*0.675\n" +
+                "+201.9592377666776*u11*w11*w11*w11*2.025*0.0\n" +
+                "+60.58829642402148*v11*w11*w11*w11*0.0*0.675\n" +
+                "+4.7450021159083455*psiy11*psiy11*2.6999999999999993*2.7\n" +
+                "-1551.4037795505149*v11*w11*-1.0*0.00000000000000001*2.7\n" +
+                "-76.61253232348221*u11*w11*w11*2.291831180523293*0.0\n" +
+                "-451.2850663506794*w11*w11*w11*1.1459155902616465*2.291831180523293\n" +
+                "+131.68724279835385*w11*w11*2.7*2.7\n" +
+                "+0.00913852259360126*v11*v11*2.7*2.6999999999999993\n" +
+                "-451.2850663506794*w11*w11*w11*2.291831180523293*1.1459155902616465\n" +
+                "-1.6923189988150482*psix11*psix11*2.6999999999999993*2.7\n" +
+                "+594.8190540866145*w11*w11*w11*w11*2.025*2.0249999999999995\n" +
+                "-1.6923189988150482*psiy11*psiy11*2.7*2.6999999999999993\n";
+        System.out.println(util.eval("ExpandAll(N(" + in + "))").toString().replace("\n", ""));
+    }
+
+    @Test
+    void z() {
+        System.out.println(util.eval("ExpandAll(Integrate(0.5817764173314433*v11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)\n" +
+                "+0.1692318998815048*w11^2.0*Cos(0.5817764173314433*yy)^2.0*Sin(0.5817764173314433*xx)^2.0\n" +
+                "-0.04938271604938271*w11*Sin(0.5817764173314433*xx)*Sin(0.5817764173314433*yy)\n" +
+                "+0.028729699621305838*v11*w11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)\n" +
+                "+0.0012193263222069805*v11^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0, {yy, 0, 5.4}))"));
+        String in = "-1.2098029496354525E-15*v11*Sin(100404663/172582903*xx)-0.169765272631355*w11*Sin(\n" +
+                "100404663/172582903*xx)+0.003292181069958848*v11^2*Sin(100404663/172582903*xx)^2+0.4569261296800633*w11^\n" +
+                "2*Sin(100404663/172582903*xx)^2";
+//        System.out.println(util.eval("ExpandAll(Integrate(" + parseService.eReplaceAll(in) + ", {xx, 0, 5.4}))"));
     }
 }

@@ -12,9 +12,9 @@ public interface ParseService {
 
     Boolean isSign(Character character);
 
-    String eReplace(String input);
+    String eReplace(String input, int minusDegreeSimplify);
 
-    String eReplaceAll(String input);
+    String eReplaceAll(String input, int minusDegreeSimplify);
 
     ArrayList<String> splitAndSkipInsideBrackets(String input, Character splitBy);
 }

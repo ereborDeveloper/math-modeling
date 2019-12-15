@@ -55,19 +55,20 @@ public class MathServiceImpl implements MathService {
 //        System.out.println("Поток №" + threadNum +" Работает с " + expandedTerms.size() + "" + expandedTerms);
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
+        ArrayList<String> factors;
         ArrayList<String> factorsToIntegrate;
-        ArrayList<String> skippedFactors;
 
         for (String term : expandedTerms.keySet()) {
-            factorsToIntegrate = parseService.splitAndSkipInsideBrackets(term, '*');
-            skippedFactors = new ArrayList<>();
-            for (String factor : factorsToIntegrate) {
-                if (!factor.contains(variable)) {
-                    skippedFactors.add(factor);
+//            System.out.println("Берем: " + term);
+            factors = parseService.splitAndSkipInsideBrackets(term, '*');
+            factorsToIntegrate = new ArrayList<>();
+            for (String factor : factors) {
+                if (factor.contains(variable)) {
+                    factorsToIntegrate.add(factor);
                 }
             }
             // Удаляем все множители, которые не зависят от переменной интегрирования
-            factorsToIntegrate.removeAll(skippedFactors);
+            factors.removeAll(factorsToIntegrate);
 
             ArrayList<String> result = new ArrayList<>();
             if (!factorsToIntegrate.isEmpty()) {
@@ -81,8 +82,6 @@ public class MathServiceImpl implements MathService {
                     if (type == "NIntegrate") {
                         writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variable + ", " + from + ", " + to + "})").toString();
                     }
-                    writeableResult = parseService.eReplaceAll(writeableResult);
-                    writeableResult = writeableResult.replace("\n", "");
                     StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
                     result.add(writeableResult);
                 } else {
@@ -94,15 +93,16 @@ public class MathServiceImpl implements MathService {
             }
             // SPEED UP плашка
 //            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
-                String sign = expandedTerms.get(term);
-                String parsedResult;
-                if (!skippedFactors.isEmpty()) {
-                    parsedResult = String.join("*", skippedFactors) + "*" + String.join("*", result);
-                } else {
-                    parsedResult = String.join("*", result);
-                }
-                parsedResult = parseService.eReplaceAll(parsedResult);
-                output += sign + parsedResult;
+            String sign = expandedTerms.get(term);
+            String parsedResult;
+            if (!factors.isEmpty()) {
+                parsedResult = String.join("*", factors) + "*" + String.join("*", result);
+            } else {
+                parsedResult = String.join("*", result);
+            }
+            parsedResult = parseService.eReplaceAll(parsedResult, 12);
+//            System.out.println("Результат: " + parsedResult);
+            output += sign + parsedResult;
 //            }
 //            System.out.println("Thread-" + threadNum + ": " + i + "/" + expandedTerms.size());
             i++;
@@ -147,7 +147,6 @@ public class MathServiceImpl implements MathService {
 //                    System.out.println("Key: " + toDerivate);
                     String writeableResult = "";
                     writeableResult += util.eval("D(" + toDerivate + ", " + variable + ")").toString();
-                    writeableResult = parseService.eReplaceAll(writeableResult);
                     if (writeableResult.charAt(0) == '-') {
                         String sign = terms.get(term);
                         if (sign.charAt(0) == '+') {
@@ -170,15 +169,16 @@ public class MathServiceImpl implements MathService {
             }
             // SPEED UP плашка
 //            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
-                String sign = terms.get(term);
-                String parsedResult;
-                if (!skippedFactors.isEmpty()) {
-                    parsedResult = String.join("*", skippedFactors) + "*" + String.join("*", result);
-                } else {
-                    parsedResult = String.join("*", result);
-                }
-                parsedResult = parseService.eReplaceAll(parsedResult);
-                output += sign + parsedResult;
+            String sign = terms.get(term);
+            String parsedResult;
+            if (!skippedFactors.isEmpty()) {
+                parsedResult = String.join("*", skippedFactors) + "*" + String.join("*", result);
+            } else {
+                parsedResult = String.join("*", result);
+            }
+            parsedResult = parseService.eReplaceAll(parsedResult, -8);
+
+            output += sign + parsedResult;
 //            }
 //            System.out.println(parsedResult + " : " + i + "/" + expandedTerms.size());
             i++;

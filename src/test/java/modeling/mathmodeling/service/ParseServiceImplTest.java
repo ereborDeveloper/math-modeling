@@ -126,29 +126,29 @@ class ParseServiceImplTest {
     @Test
     void eReplacer() {
         String in = "10";
-        assertEquals("10", parseService.eReplace(in));
+        assertEquals("10", parseService.eReplace(in, 0));
 
         in = "e7";
-        assertEquals("*10000000", parseService.eReplace(in));
+        assertEquals("*10000000", parseService.eReplace(in,0));
 
         in = "e-7";
-        assertEquals("*0.00000001", parseService.eReplace(in));
+        assertEquals("*0.00000001", parseService.eReplace(in, 8));
 
         in = "0.12456e2";
-        assertEquals("0.12456*100", parseService.eReplace(in));
+        assertEquals("0.12456*100", parseService.eReplace(in, 0));
 
         in = "0.12456e3*Sin(x)";
-        assertEquals("0.12456*1000*Sin(x)", parseService.eReplace(in));
+        assertEquals("0.12456*1000*Sin(x)", parseService.eReplace(in,0));
 
         in = "1.0021511423251277E7*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0";
-        assertEquals("1.0021511423251277*10000000*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0", parseService.eReplace(in));
+        assertEquals("1.0021511423251277*10000000*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0", parseService.eReplace(in,0));
     }
 
 
     @Test
     void eReplaceAll() {
         String in = "1.18125*0.0*1.4224746001982408E-6*-7.494504917414604E-11";
-        assertEquals("1.18125*0.0*1.4224746001982408*0.0000001*-7.494504917414604*0.000000000001", parseService.eReplaceAll(in));
+        assertEquals("0.0", parseService.eReplaceAll(in,10));
     }
 
     @Test
@@ -199,5 +199,17 @@ class ParseServiceImplTest {
 
         assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
 
+    }
+
+    @Test
+    void splitAndSkip_whenDegreeAfter_thenGetIt()
+    {
+        String in ="0.0012193263222069805*v11^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0";
+        ArrayList <String> expected = new ArrayList<>();
+        expected.add("0.0012193263222069805");
+        expected.add("v11^2.0");
+        expected.add("Sin(0.5817764173314433*xx)^2.0");
+        expected.add("Sin(0.5817764173314433*yy)^2.0");
+        assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
     }
 }

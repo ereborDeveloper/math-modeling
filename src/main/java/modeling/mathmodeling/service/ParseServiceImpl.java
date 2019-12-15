@@ -151,7 +151,7 @@ public class ParseServiceImpl implements ParseService {
     }
 
     @Override
-    public String eReplace(String input) {
+    public String eReplace(String input, int minusDegreeSimplify) {
         String output = "*";
         String temp = input.toLowerCase();
         boolean negative = false;
@@ -171,6 +171,10 @@ public class ParseServiceImpl implements ParseService {
             }
         }
         int value = Math.abs(Integer.parseInt(temp.substring(eIndex + 1, carriage)));
+        if(value > minusDegreeSimplify && negative)
+        {
+            return "0.0";
+        }
         if (negative) {
             output += "0.";
             for (int i = 1; i <= value; i++) {
@@ -188,9 +192,9 @@ public class ParseServiceImpl implements ParseService {
     }
 
     @Override
-    public String eReplaceAll(String input) {
+    public String eReplaceAll(String input, int minusDegreeSimplify) {
         while (input.contains("e") || input.contains("E")) {
-            input = eReplace(input);
+            input = eReplace(input, minusDegreeSimplify);
         }
         return input;
     }
@@ -231,7 +235,7 @@ public class ParseServiceImpl implements ParseService {
                 input = input.substring(closedBracketIndex + 1);
                 splitIndex = input.indexOf(splitBy);
                 if (splitIndex == -1) {
-                    output.add(temp);
+                    output.add(temp + input);
                     return output;
                 }
                 if (splitIndex == 0) {
