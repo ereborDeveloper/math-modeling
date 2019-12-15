@@ -6,6 +6,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+
+import static modeling.mathmodeling.storage.StaticStorage.availableCores;
 
 @Service
 public class MathServiceImpl implements MathService {
@@ -15,6 +18,35 @@ public class MathServiceImpl implements MathService {
 
     public MathServiceImpl(ParseService parseService) {
         this.parseService = parseService;
+    }
+
+    @Override
+    public String multithreadingIntegrate(HashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
+        StaticStorage.integrateResult.clear();
+        int blockSize = expandedTerms.size() / availableCores;
+        for (int i = 0; i < availableCores; i++) {
+            List<String> partialKeys;
+            if (i == availableCores - 1) {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
+            } else {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
+            }
+            HashMap<String, String> partialTerms = new HashMap<>();
+            for (String key : partialKeys) {
+                partialTerms.put(key, expandedTerms.get(key));
+            }
+            // adding terms to runnable
+            int currentThreadNum = i;
+            Thread thread = new Thread(() -> {
+                StaticStorage.integrateResult.add(partialIntegrate(currentThreadNum, partialTerms, variable, from, to, type));
+            });
+            thread.start();
+            StaticStorage.currentTask.put(currentThreadNum, thread);
+        }
+        while (StaticStorage.currentTask.size() > 0) {
+            // Waiting for task executing
+        }
+        return String.join("", StaticStorage.integrateResult);
     }
 
     @Override
@@ -30,13 +62,12 @@ public class MathServiceImpl implements MathService {
             factorsToIntegrate = parseService.splitAndSkipInsideBrackets(term, '*');
             skippedFactors = new ArrayList<>();
             for (String factor : factorsToIntegrate) {
-                if (!(factor.contains(variable) && !factor.contains("psi"))) {
+                if (!factor.contains(variable)) {
                     skippedFactors.add(factor);
                 }
             }
             // Удаляем все множители, которые не зависят от переменной интегрирования
             factorsToIntegrate.removeAll(skippedFactors);
-
 
             ArrayList<String> result = new ArrayList<>();
             if (!factorsToIntegrate.isEmpty()) {
@@ -62,7 +93,7 @@ public class MathServiceImpl implements MathService {
                 result.add(String.valueOf(to - from));
             }
             // SPEED UP плашка
-            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
+//            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
                 String sign = expandedTerms.get(term);
                 String parsedResult;
                 if (!skippedFactors.isEmpty()) {
@@ -72,9 +103,8 @@ public class MathServiceImpl implements MathService {
                 }
                 parsedResult = parseService.eReplaceAll(parsedResult);
                 output += sign + parsedResult;
-            }
-//            System.out.println(parsedResult + " : " + i + "/" + expandedTerms.size());
-            System.out.println("Thread-" + threadNum + ": " + i + "/" + expandedTerms.size());
+//            }
+//            System.out.println("Thread-" + threadNum + ": " + i + "/" + expandedTerms.size());
             i++;
         }
         StaticStorage.currentTask.remove(threadNum);
@@ -91,7 +121,6 @@ public class MathServiceImpl implements MathService {
                 terms.put(key, value);
             }
         });
-        System.out.println(terms);
         if (terms.isEmpty()) {
             return "0.0";
         }
@@ -140,7 +169,7 @@ public class MathServiceImpl implements MathService {
                 continue;
             }
             // SPEED UP плашка
-            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
+//            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
                 String sign = terms.get(term);
                 String parsedResult;
                 if (!skippedFactors.isEmpty()) {
@@ -150,7 +179,7 @@ public class MathServiceImpl implements MathService {
                 }
                 parsedResult = parseService.eReplaceAll(parsedResult);
                 output += sign + parsedResult;
-            }
+//            }
 //            System.out.println(parsedResult + " : " + i + "/" + expandedTerms.size());
             i++;
         }

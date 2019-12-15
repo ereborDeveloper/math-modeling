@@ -6,6 +6,8 @@ import modeling.mathmodeling.storage.StaticStorage;
 import modeling.mathmodeling.util.MatrixUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.matheclipse.core.basic.Config;
+import org.matheclipse.core.eval.EvalEngine;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.matheclipse.core.interfaces.IExpr;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +19,6 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
@@ -39,11 +40,13 @@ class MathModelingApplicationTests {
     void modeling() throws Exception {
         BufferedWriter writer = new BufferedWriter(new FileWriter("1.txt"));
 
+        System.out.println(Config.MAX_OUTPUT_SIZE);
+
         // TODO: Добавить выгрузку интегралов в файл и обнулять его только при действии пользователя
-        int availableCores = Runtime.getRuntime().availableProcessors();
+        StaticStorage.availableCores = Runtime.getRuntime().availableProcessors();
 
         IExpr result;
-        int n = 4;
+        int n = 1;
         int precision = 7;
 
         int N = (int) Math.pow(n, 2);
@@ -51,10 +54,17 @@ class MathModelingApplicationTests {
         util.eval("f(i_) := 6 * (1 / 4 - i * i / h / h)");
 
         // Аппроксимирующие функции
-        for (int i = 1; i <= 5; i++) {
-            util.eval("x" + i + "(i_) := Sin(i * Pi * x / a)");
-            util.eval("y" + i + "(i_) := Sin(i * Pi * y / b)");
-        }
+
+        util.eval("x1(i_) := Sin(i * Pi * xx / a)");
+        util.eval("y1(i_) := Sin(i * Pi * yy / b)");
+        util.eval("x2(i_) := Sin(i * Pi * xx / a)");
+        util.eval("y2(i_) := Sin(i * Pi * yy / b)");
+        util.eval("x3(i_) := Sin(i * Pi * xx / a)");
+        util.eval("y3(i_) := Sin(i * Pi * yy / b)");
+        util.eval("x4(i_) := Sin(i * Pi * xx / a)");
+        util.eval("y4(i_) := Sin(i * Pi * yy / b)");
+        util.eval("x5(i_) := Sin(i * Pi * xx / a)");
+        util.eval("y5(i_) := Sin(i * Pi * yy / b)");
 
         String U;
         String V;
@@ -101,21 +111,21 @@ class MathModelingApplicationTests {
         util.eval("PsiY := " + PsiY);
 
         // TODO: Что это?
-        util.eval("Theta1 := (-(D(W,x) / A + kx * U))");
-        util.eval("Theta2 := (-(D(W,y) / B + ky * V))");
+        util.eval("Theta1 := (-(D(W, xx) / A + kx * U))");
+        util.eval("Theta2 := (-(D(W, yy) / B + ky * V))");
 
         // Деформация изменения
-        util.eval("eX := (D(U, x) / A + D(A, y) * V / (A * B) - kx * W + (Theta1 ^ 2) / 2)");
-        util.eval("eY := (D(V, y) / B + D(B, x) * U / (A * B) - ky * W + (Theta2 ^ 2) / 2)");
+        util.eval("eX := (D(U, xx) / A + D(A, yy) * V / (A * B) - kx * W + (Theta1 ^ 2) / 2)");
+        util.eval("eY := (D(V, yy) / B + D(B, xx) * U / (A * B) - ky * W + (Theta2 ^ 2) / 2)");
 
         // Кривизна кручения
-        util.eval("gammaXY := (D(V, x) / A + D(U, y) / B - D(A, y) * U / (A * B) - D(B, x) * V / (A * B) + Theta1 * Theta2)");
+        util.eval("gammaXY := (D(V, xx) / A + D(U, yy) / B - D(A, yy) * U / (A * B) - D(B, xx) * V / (A * B) + Theta1 * Theta2)");
         util.eval("gammaXZ := (k * f(z) * (PsiX - Theta1))");
         util.eval("gammaYZ := (k * f(z) * (PsiY - Theta2))");
 
-        util.eval("Chi1 := (D(PsiX, x) / A + D(A, y) * PsiY / (A * B))");
-        util.eval("Chi2 := (D(PsiY, y) / B + D(B, x) * PsiX / (A * B))");
-        util.eval("Chi12 := 1 / 2 * (D(PsiY, x) / A  + D(PsiX, y) / B - (D(A, y) * PsiX + D(B, x) * PsiY)/(A * B))");
+        util.eval("Chi1 := (D(PsiX, xx) / A + D(A, yy) * PsiY / (A * B))");
+        util.eval("Chi2 := (D(PsiY, yy) / B + D(B, xx) * PsiX / (A * B))");
+        util.eval("Chi12 := 1 / 2 * (D(PsiY, xx) / A  + D(PsiX, yy) / B - (D(A, yy) * PsiX + D(B, xx) * PsiY)/(A * B))");
 
 //        Усилия и моменты
         util.eval("MX := (E1 * h ^ 3 / (12 * (1 - mu12 * mu21)) * (Chi1 + mu21 * Chi2))");
@@ -137,7 +147,7 @@ class MathModelingApplicationTests {
                 "(NX * ex + NY * ey + " +
                 "1 / 2 * (NXY + NYX) * gammaXY + MX * Chi1 + " +
                 "MY * Chi2 + (MXY + MYX) * Chi12 + " +
-                "QX * (PsiX - Theta1) + QY * (PsiY - Theta2) - PX * U - PY * V - q * W) * A * B))");
+                "QX * (PsiX - Theta1) + QY * (PsiY - Theta2) - q*W) * A * B))");
 
         double E1 = 2.1 * Math.pow(10, 5);
         double E2 = 2.1 * Math.pow(10, 5);
@@ -186,85 +196,56 @@ class MathModelingApplicationTests {
         double ky = 1 / r;
         util.eval("ky := " + ky);
 
-        double q0 = 0.01;
-        double qsv = (1.34 * Math.pow(10, -2));
+        System.out.println("Expanding degrees");
+        String pre = parseService.expandAllDegrees(util.eval("pre").toString());
+        System.out.println("Expanding brackets");
+        result = util.eval("ExpandAll(" + pre + ")");
 
-        System.out.println("Раскрываем скобки");
-        result = util.eval("ExpandAll(pre)");
-
-        System.out.println("Интегрирование по y");
+        System.out.println("Starting..");
         String body = result.toString().replace("\n", "");
 
-        // Перед интегрированием необходимо убедиться, что все скобки раскрыты
-        HashMap<String, String> terms = parseService.getTermsFromString(body);
-        HashMap<String, String> alreadyComputedIntegrals = new HashMap<>();
-        // TODO: Можно сделать выгрузку интегралов в файл
+        writer.write(body + "\n\n");
 
-        // Подготовка, раскрытие степени и удаление E
-        System.out.println("Сортировка");
+        HashMap<String, String> terms = parseService.getTermsFromString(body);
+        // TODO: Integrals to file
+
+        // Prepare, expand degree, replace E
+        System.out.println("Sorting");
         HashMap<String, String> expandedTerms = new HashMap<>();
         for (String term : terms.keySet()) {
             String newKey = parseService.expandAllDegrees(parseService.eReplaceAll(term));
             expandedTerms.put(newKey, terms.get(term));
         }
-        System.out.println("Заполнили");
+        writer.write(expandedTerms + "\n\n");
+
+        System.out.println("Filled");
         terms.clear();
-        System.out.println("Очистили");
+        System.out.println("Cleared");
 
-        int blockSize = expandedTerms.size() / availableCores;
-        // Интегрирование по Y
-        for (int i = 0; i < availableCores; i++) {
-            List<String> partialKeys;
-            if (i == availableCores - 1) {
-                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
-            } else {
-                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
-            }
-            HashMap<String, String> partialTerms = new HashMap<>();
-            for (String key : partialKeys) {
-                partialTerms.put(key, expandedTerms.get(key));
-            }
-            int threadNumber = i;
-            Thread thread = new Thread(() -> StaticStorage.integrateResult.add(mathService.partialIntegrate(threadNumber, partialTerms, "y", 0, b, "NIntegrate")));
-            thread.start();
-            StaticStorage.currentTask.put(i, thread);
-        }
-        while (StaticStorage.currentTask.size() > 0) {
-//            Thread.sleep(1000);
-//            System.out.println(StaticStorage.currentTask);
-        }
-        String afterIntegrate = "";
+        // y integrate
+        String afterIntegrate = mathService.multithreadingIntegrate(expandedTerms, "yy", 0, b, "NIntegrate");
+        writer.write(afterIntegrate + "\n\n");
+        // prepare
+        expandedTerms = parseService.getTermsFromString(afterIntegrate.replace("\n", ""));
+        // x integrate
+        afterIntegrate = mathService.multithreadingIntegrate(expandedTerms, "xx", a1, a, "NIntegrate");
 
-        // Интегрирование по X
-        //TODO: Склеить строку, снова разбить на равные блоки, повторить
-//        writer.close();
-//        System.out.println(StaticStorage.integrateResult);
-        System.exit(0);
+        writer.write(afterIntegrate);
+        writer.close();
 
-//        expandedTerms = parseService.getTermsFromString(afterIntegrate.replace("\n", ""));
-
-        System.out.println("Пробуем");
-//        afterIntegrate = mathService.partialIntegrate(util, expandedTerms, "x", a1, a, "NIntegrate");
-
-        System.out.println("Пробуем D");
-
+        System.out.println("Gradient");
         HashMap<String, String> gradient = new HashMap<>();
         for (String coef : coefficients) {
-            // TODO: Разбить и на многопоточность
-            System.out.println(afterIntegrate);
             String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, afterIntegrate, coef)).toString().replace("\n", ""));
-//                    parseService.eReplace(util.eval("D(" + afterIntegrate + ", " + coef + ")").toString()).replace("\n", "");
-//            System.out.println(tempD);
+            System.out.println(tempD);
             gradient.put(coef, tempD);
         }
         System.out.println("Hessian:");
         HashMap<String, String> hessian = new HashMap<>();
         for (String key : gradient.keySet()) {
             for (String coef : coefficients) {
-//                System.out.println(coef);
-//                System.out.println(gradient.get(key));
                 String tempD = parseService.eReplaceAll(util.eval(mathService.partialDerivative(util, gradient.get(key), coef)).toString().replace("\n", ""));
-//                System.out.println(tempD);
+                System.out.println(tempD);
                 hessian.put(key + "|" + coef, tempD);
             }
         }
@@ -368,4 +349,10 @@ class MathModelingApplicationTests {
         System.out.println(util.eval("(" + in + ")"));
     }
 
+    @Test
+    void p()
+    {
+        String in = "0.25059375*pi**2*psix11**2 + 9021.375*psix11**2 + 0.5011875*pi**2*psix11*psiy11 + 3341.25*pi*psix11*w11 - 0.0925925925925926*pi*psix11*(-18.9259615384615*pi*psix11 - 5.67778846153846*pi*psiy11) + 0.25059375*pi**2*psiy11**2 + 9021.375*psiy11**2 + 3341.25*pi*psiy11*w11 - 0.0925925925925926*pi*psiy11*(-5.67778846153846*pi*psix11 - 18.9259615384615*pi*psiy11) - 116.64*q*w11/pi**2 + 0.0362139917695473*u11**2*v11**2 + 0.169753086419753*pi**2*u11**2*w11**2 + 130.37037037037*u11**2*w11 + 142.004444444444*u11**2 + 371.25*pi**2*u11**2 + 0.169753086419753*pi**2*v11**2*w11**2 + 130.37037037037*v11**2*w11 + 142.004444444444*v11**2 + 371.25*pi**2*v11**2 + 0.795717592592592*pi**4*w11**4 + 3993.875*pi**2*w11**2 - 155525.76*w11/pi**2".replace("**", "^");
+        System.out.println( util.eval("ExpandAll(N(" +in + "))").toString().replace("\n",""));
+    }
 }
