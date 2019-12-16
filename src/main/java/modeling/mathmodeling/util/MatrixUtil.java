@@ -1,8 +1,10 @@
 package modeling.mathmodeling.util;
 
+import org.springframework.stereotype.Service;
+
 import java.util.Arrays;
 import java.util.stream.IntStream;
-
+@Service
 public class MatrixUtil {
     public static double[][] invert(double a[][]) {
         int n = a.length;

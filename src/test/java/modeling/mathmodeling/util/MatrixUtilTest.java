@@ -1,10 +1,14 @@
 package modeling.mathmodeling.util;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class MatrixUtilTest {
+
+    @Autowired
+    MatrixUtil matrixUtil;
 
     @Test
     void invert() {
@@ -18,6 +22,6 @@ class MatrixUtilTest {
                 {0.0, -1.0, 1.0},
                 {0.0, 1.0, -0.5}
         };
-        assertArrayEquals(expected, MatrixUtil.invert(in));
+        assertArrayEquals(expected, matrixUtil.invert(in));
     }
 }

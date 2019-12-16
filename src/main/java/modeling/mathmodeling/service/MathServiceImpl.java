@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static modeling.mathmodeling.storage.StaticStorage.availableCores;
 
@@ -39,9 +40,10 @@ public class MathServiceImpl implements MathService {
             int currentThreadNum = i;
             Thread thread = new Thread(() -> {
                 StaticStorage.integrateResult.add(partialIntegrate(currentThreadNum, partialTerms, variable, from, to, type));
+                StaticStorage.currentTask.remove(currentThreadNum);
             });
-            thread.start();
             StaticStorage.currentTask.put(currentThreadNum, thread);
+            thread.start();
         }
         while (StaticStorage.currentTask.size() > 0) {
             // Waiting for task executing
@@ -55,13 +57,11 @@ public class MathServiceImpl implements MathService {
 //        System.out.println("Поток №" + threadNum +" Работает с " + expandedTerms.size() + "" + expandedTerms);
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
-        ArrayList<String> factors;
-        ArrayList<String> factorsToIntegrate;
 
         for (String term : expandedTerms.keySet()) {
 //            System.out.println("Берем: " + term);
-            factors = parseService.splitAndSkipInsideBrackets(term, '*');
-            factorsToIntegrate = new ArrayList<>();
+            ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
+            ArrayList<String> factorsToIntegrate = new ArrayList<>();
             for (String factor : factors) {
                 if (factor.contains(variable)) {
                     factorsToIntegrate.add(factor);
@@ -100,88 +100,120 @@ public class MathServiceImpl implements MathService {
             } else {
                 parsedResult = String.join("*", result);
             }
-            parsedResult = parseService.eReplaceAll(parsedResult, 12);
+//            parsedResult = parseService.eReplaceAll(parsedResult, 12);
 //            System.out.println("Результат: " + parsedResult);
             output += sign + parsedResult;
 //            }
 //            System.out.println("Thread-" + threadNum + ": " + i + "/" + expandedTerms.size());
             i++;
         }
-        StaticStorage.currentTask.remove(threadNum);
         return output;
     }
 
     @Override
-    public String partialDerivative(ExprEvaluator util, String body, String variable) {
+    public ConcurrentHashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, ArrayList<String> variables) {
+        HashMap<String, String> gradient = new HashMap<>();
+        StaticStorage.derivativeResult.clear();
+        for (String variable : variables) {
+            Thread thread = new Thread(() -> {
+                StaticStorage.gradient.put(variable, partialDerivative(expandedTerms, variable));
+                StaticStorage.currentTask.remove(variables.indexOf(variable));
+            });
+            StaticStorage.currentTask.put(variables.indexOf(variable), thread);
+            thread.start();
+        }
+        while (StaticStorage.currentTask.size() > 0) {
+            // Waiting for task executing
+        }
+        return new ConcurrentHashMap<>(StaticStorage.gradient);
+    }
+
+    @Override
+    public String multithreadingDerivative(HashMap<String, String> expandedTerms, String variable) {
+        StaticStorage.derivativeResult.clear();
+        int blockSize = expandedTerms.size() / availableCores;
+        for (int i = 0; i < availableCores; i++) {
+            List<String> partialKeys;
+            if (i == availableCores - 1) {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
+            } else {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
+            }
+            HashMap<String, String> partialTerms = new HashMap<>();
+            for (String key : partialKeys) {
+                partialTerms.put(key, expandedTerms.get(key));
+            }
+            // adding terms to runnable
+            int currentThreadNum = i;
+            Thread thread = new Thread(() -> {
+                StaticStorage.derivativeResult.add(partialDerivative(partialTerms, variable));
+                StaticStorage.currentTask.remove(currentThreadNum);
+            });
+            StaticStorage.currentTask.put(currentThreadNum, thread);
+            thread.start();
+        }
+        while (StaticStorage.currentTask.size() > 0) {
+            // Waiting for task executing
+        }
+        return String.join("", StaticStorage.derivativeResult);
+    }
+
+    @Override
+    public String partialDerivative(HashMap<String, String> terms, String variable) {
+        StaticStorage.alreadyComputedIntegrals.clear();
         int i = 0;
         String output = "";
-        HashMap<String, String> terms = new HashMap<>();
-        parseService.getTermsFromString(body.replace("\n", "")).forEach((key, value) -> {
-            if (key.contains("*" + variable) && !key.contains("*0.0")) {
-                terms.put(key, value);
-            }
-        });
+        ExprEvaluator util = new ExprEvaluator(true, 50000);
         if (terms.isEmpty()) {
-            return "0.0";
+            return "+0.0";
         }
-        HashMap<String, String> alreadyComputedDerivative = new HashMap<>();
-
-        ArrayList<String> factorsToDerivative;
-        ArrayList<String> skippedFactors;
 
         for (String term : terms.keySet()) {
-            factorsToDerivative = parseService.splitAndSkipInsideBrackets(term, '*');
-            skippedFactors = new ArrayList<>();
-            for (String factor : factorsToDerivative) {
-                if (!factor.contains(variable)) {
-                    skippedFactors.add(factor);
+            ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
+            ArrayList<String> factorsToDerivative = new ArrayList<>();
+            for (String factor : factors) {
+                if (factor.contains(variable)) {
+                    factorsToDerivative.add(factor);
                 }
             }
             // Удаляем все множители, которые не зависят от переменной
-            factorsToDerivative.removeAll(skippedFactors);
+            factors.removeAll(factorsToDerivative);
 
             ArrayList<String> result = new ArrayList<>();
             if (!factorsToDerivative.isEmpty()) {
                 String toDerivate = String.join("*", factorsToDerivative);
-                if (!alreadyComputedDerivative.containsKey(toDerivate)) {
+                if (!StaticStorage.alreadyComputedDerivatives.containsKey(toDerivate)) {
 //                    System.out.println("Key: " + toDerivate);
                     String writeableResult = "";
                     writeableResult += util.eval("D(" + toDerivate + ", " + variable + ")").toString();
-                    if (writeableResult.charAt(0) == '-') {
-                        String sign = terms.get(term);
-                        if (sign.charAt(0) == '+') {
-                            terms.replace(term, sign.replace("+", "-"));
-                        }
-                        if (sign.charAt(0) == '-') {
-                            terms.replace(term, sign.replace("-", "+"));
-                        }
-                        writeableResult = writeableResult.substring(1);
-                    }
                     writeableResult = writeableResult.replace("\n", "");
-                    alreadyComputedDerivative.put(toDerivate, writeableResult);
+                    StaticStorage.alreadyComputedDerivatives.put(toDerivate, writeableResult);
                     result.add(writeableResult);
                 } else {
-                    result.add(alreadyComputedDerivative.get(toDerivate));
+                    result.add(StaticStorage.alreadyComputedDerivatives.get(toDerivate));
                 }
             } else {
-                // Если не зависит от переменной , пропускаем подставляем пределы
+                // Если не зависит от переменной, пропускаем подставляем пределы
                 continue;
             }
             // SPEED UP плашка
 //            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
             String sign = terms.get(term);
             String parsedResult;
-            if (!skippedFactors.isEmpty()) {
-                parsedResult = String.join("*", skippedFactors) + "*" + String.join("*", result);
+            if (!factors.isEmpty()) {
+                parsedResult = String.join("*", factors) + "*" + String.join("*", result);
             } else {
                 parsedResult = String.join("*", result);
             }
-            parsedResult = parseService.eReplaceAll(parsedResult, -8);
-
-            output += sign + parsedResult;
+//            parsedResult = sign + parseService.eReplaceAll(parsedResult, 12);
+            parsedResult = sign + parsedResult.replace("+-", "-").replace("--", "+");
+            output += parsedResult;
 //            }
 //            System.out.println(parsedResult + " : " + i + "/" + expandedTerms.size());
             i++;
+        }
+        if (output.trim() == "") {
+            return "+0.0";
         }
         return output;
     }
