@@ -1,29 +1,21 @@
-package modeling.mathmodeling;
+package modeling.mathmodeling.service;
 
-import modeling.mathmodeling.service.MathService;
-import modeling.mathmodeling.service.ParseService;
 import modeling.mathmodeling.storage.StaticStorage;
 import org.jblas.DoubleMatrix;
 import org.jblas.Solve;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.matheclipse.core.interfaces.IExpr;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.stereotype.Service;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ExtendWith(SpringExtension.class)
-@SpringBootTest
-class MathModelingApplicationTests {
+@Service
+public class ModelingServiceImpl implements ModelingService {
+    private ExprEvaluator util = new ExprEvaluator(true, 50000);
 
     @Autowired
     ParseService parseService;
@@ -31,15 +23,10 @@ class MathModelingApplicationTests {
     @Autowired
     MathService mathService;
 
-    private ExprEvaluator util = new ExprEvaluator(true, 50000);
-
-    @Test
-    void contextLoads() {
-    }
-
-    @Test
-    void modeling() throws Exception {
-        BufferedWriter writer = new BufferedWriter(new FileWriter("1.txt"));
+    @Override
+    public void model(int n) {
+        StaticStorage.modelServiceOutput.clear();
+        StaticStorage.isModeling = true;
 
         System.out.println(Config.MAX_OUTPUT_SIZE);
         Config.EXPLICIT_TIMES_OPERATOR = true;
@@ -49,7 +36,6 @@ class MathModelingApplicationTests {
         StaticStorage.availableCores = Runtime.getRuntime().availableProcessors();
 
         IExpr result;
-        int n = 2;
 
         int N = (int) Math.pow(n, 2);
         // TODO: Что это?
@@ -147,7 +133,7 @@ class MathModelingApplicationTests {
         util.eval("QY := G * k * h * (PsiY - Theta2)");
 
         util.eval("pre := " +
-                "0.5 * (NX * eX" +
+                "(NX * eX" +
                 " + NY * eY + 0.5 * (NXY + NYX) * gammaXY + " +
                 "MX * Chi1 + MY * Chi2 + (MXY + MYX) * Chi12 + " +
                 "QX * (PsiX - Theta1) + QY * (PsiY - Theta2)) * A * B - q * W * A * B");
@@ -221,8 +207,6 @@ class MathModelingApplicationTests {
 
         // prepare
         terms = parseService.getTermsFromString(afterIntegrate);
-        expandedTerms = new HashMap<>();
-
         // x integrate
         afterIntegrate = mathService.multithreadingIntegrate(terms, "xx", a1, a, "NIntegrate");
         System.out.println("Взяли по X");
@@ -249,8 +233,6 @@ class MathModelingApplicationTests {
         }
         double q = 0.0;
         Double eps = 0.0000001;
-        HashMap<Double, Double> output = new HashMap<>();
-        int theadNum = 0;
         while (q < 3.2) {
             double finalQ = q;
             boolean firstStep = true;
@@ -265,7 +247,7 @@ class MathModelingApplicationTests {
 
                 int currentGradientIndex = 0;
                 for (String key : coefficients) {
-                    String value = gradient.get(key).replace("q", Double.toString(finalQ) );
+                    String value = gradient.get(key).replace("q", Double.toString(finalQ));
                     for (String coef : coefficients) {
                         value = value.replace(coef, String.valueOf(grail.get(coef)));
                     }
@@ -314,122 +296,16 @@ class MathModelingApplicationTests {
                 firstStep = false;
             }
             System.out.println("Коэффициенты:" + finalQ);
-            System.out.println(grail);
             String Woutput = util.eval("W").toString();
-            System.out.println(Woutput);
             Woutput = Woutput.replace("xx", String.valueOf(a / 2)).replace("yy", String.valueOf(b / 2));
             Woutput = util.eval(Woutput).toString();
             for (String key : grail.keySet()) {
                 Woutput = Woutput.replace(key, String.valueOf(grail.get(key)));
             }
             System.out.println(Woutput);
-            output.put(finalQ, Double.parseDouble(Woutput));
+            StaticStorage.modelServiceOutput.put(finalQ, Double.parseDouble(Woutput));
             q += 0.01;
         }
-
-        ArrayList<Double> sortedOutputKeyList = new ArrayList<>(output.keySet());
-        Collections.sort(sortedOutputKeyList);
-        for (Double key : sortedOutputKeyList) {
-            writer.write(key + ":" + output.get(key) + "\n");
-        }
-        writer.close();
-    }
-
-    @Test
-    void pars() {
-        String in = "1.18125*0.0*1.4224746001982408E-6*-7.494504917414604E-11";
-        System.out.println(util.eval("(" + in + ")"));
-    }
-
-    @Test
-    void e() {
-        String in = "1.0021511423251277E7*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0";
-        String newKey = parseService.expandAllDegrees(in);
-        System.out.println(newKey);
-
-    }
-
-    @Test
-    void symjaBug() {
-        String in = "0.1758368*0.4112540785271148*0.0*9.986163076795545E-11";
-        System.out.println(util.eval("(" + in + ")"));
-    }
-
-    @Test
-    void p() {
-        String in = "+4217.797935630384*u11*v11*\n" +
-                "-1.0*0.00000000000000001*-1.0*0.00000000000000001\n" +
-                "+201.9592377666776*v11*w11*w11*w11*0.0*2.025\n" +
-                "+4.954068632366608*5.3999999999999995*5.3999999999999995\n" +
-                "+8.839984188318734*u11*v11*v11*2.291831180523293*0.0\n" +
-                "+1.455128819059491*v11*v11*v11*w11*0.0*2.025\n" +
-                "+10.28578866069336*u11*v11*w11*w11*0.0*0.0\n" +
-                "+0.4365424290527769*u11*u11*v11*w11*0.0*2.025\n" +
-                "-3.2515368592186142*u11*u11*w11*2.291831180523293*2.291831180523293\n" +
-                "+594.8190540866145*w11*w11*w11*w11*2.0249999999999995*2.025\n" +
-                "+29.466358585954698*v11*v11*v11*0.0*2.291831180523293\n" +
-                "+0.030878792585172017*v11*v11*v11*v11*2.025*2.025\n" +
-                "-3.2515368592186142*v11*v11*w11*2.291831180523293*2.291831180523293\n" +
-                "+8.839984188318734*u11*u11*v11*0.0*2.291831180523293\n" +
-                "+416.57263561781565*u11*v11*w11*0.0*0.0\n" +
-                "+0.00913852259360126*u11*u11*2.6999999999999993*2.7\n" +
-                "+0.018527436120824654*u11*u11*v11*v11*2.025*2.025\n" +
-                "+694.2847174625837*v11*v11*w11*1.1459155902616465*2.291831180523293\n" +
-                "+25.714248794910503*v11*v11*w11*w11*0.675*2.025\n" +
-                "+694.2847174625837*u11*u11*w11*2.291831180523293*1.1459155902616465\n" +
-                "+0.4365424290527769*u11*v11*v11*w11*2.025*0.0\n" +
-                "+0.030878792585172017*u11*u11*u11*u11*2.025*2.025\n" +
-                "+4089.6745647752223*v11*w11*w11*0.0*2.291831180523293\n" +
-                "+60.58829642402148*u11*w11*w11*w11*0.675*0.0\n" +
-                "-1551.4037795505149*u11*w11*2.7*-1.0*0.00000000000000001\n" +
-                "+9.02570132701359*0.00001*u11*u11*w11*1.1459155902616465*2.291831180523293\n" +
-                "-q*w11*3.4377467707849396*3.4377467707849396\n" +
-                "+1226.9130025864351*v11*w11*w11*0.0*1.1459155902616465\n" +
-                "+2.571447165173339*v11*v11*w11*w11*2.025*0.675\n" +
-                "+4089.6745647752223*u11*w11*w11*2.291831180523293*0.0\n" +
-                "+7029.63276430866*v11*v11*2.6999999999999993*2.7\n" +
-                "+4.7450021159083455*psix11*psix11*2.7*2.6999999999999993\n" +
-                "+9.02570132701359*0.00001*v11*v11*w11*2.291831180523293*1.1459155902616465\n" +
-                "+29.466358585954698*u11*u11*u11*2.291831180523293*0.0\n" +
-                "+1.455128819059491*u11*u11*u11*w11*2.025*0.0\n" +
-                "-0.5376367280850891*psix11*psiy11*-1.0*0.00000000000000001*-1.0*0.00000000000000001\n" +
-                "+7029.63276430866*u11*u11*2.7*2.6999999999999993\n" +
-                "-76.61253232348221*v11*w11*w11*0.0*2.291831180523293\n" +
-                "+1226.9130025864351*u11*w11*w11*1.1459155902616465*0.0\n" +
-                "+2.571447165173339*u11*u11*w11*w11*0.675*2.025\n" +
-                "+25.714248794910503*u11*u11*w11*w11*2.025*0.675\n" +
-                "+356.89452551105*w11*w11*w11*w11*0.675*0.675\n" +
-                "+201.9592377666776*u11*w11*w11*w11*2.025*0.0\n" +
-                "+60.58829642402148*v11*w11*w11*w11*0.0*0.675\n" +
-                "+4.7450021159083455*psiy11*psiy11*2.6999999999999993*2.7\n" +
-                "-1551.4037795505149*v11*w11*-1.0*0.00000000000000001*2.7\n" +
-                "-76.61253232348221*u11*w11*w11*2.291831180523293*0.0\n" +
-                "-451.2850663506794*w11*w11*w11*1.1459155902616465*2.291831180523293\n" +
-                "+131.68724279835385*w11*w11*2.7*2.7\n" +
-                "+0.00913852259360126*v11*v11*2.7*2.6999999999999993\n" +
-                "-451.2850663506794*w11*w11*w11*2.291831180523293*1.1459155902616465\n" +
-                "-1.6923189988150482*psix11*psix11*2.6999999999999993*2.7\n" +
-                "+594.8190540866145*w11*w11*w11*w11*2.025*2.0249999999999995\n" +
-                "-1.6923189988150482*psiy11*psiy11*2.7*2.6999999999999993\n";
-        System.out.println(util.eval("ExpandAll(N(" + in + "))").toString().replace("\n", ""));
-    }
-
-    @Test
-    void z() {
-        System.out.println(util.eval("ExpandAll(Integrate(0.5817764173314433*v11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)\n" +
-                "+0.1692318998815048*w11^2.0*Cos(0.5817764173314433*yy)^2.0*Sin(0.5817764173314433*xx)^2.0\n" +
-                "-0.04938271604938271*w11*Sin(0.5817764173314433*xx)*Sin(0.5817764173314433*yy)\n" +
-                "+0.028729699621305838*v11*w11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)\n" +
-                "+0.0012193263222069805*v11^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0, {yy, 0, 5.4}))"));
-        String in = "-1.2098029496354525E-15*v11*Sin(100404663/172582903*xx)-0.169765272631355*w11*Sin(\n" +
-                "100404663/172582903*xx)+0.003292181069958848*v11^2*Sin(100404663/172582903*xx)^2+0.4569261296800633*w11^\n" +
-                "2*Sin(100404663/172582903*xx)^2";
-//        System.out.println(util.eval("ExpandAll(Integrate(" + parseService.eReplaceAll(in) + ", {xx, 0, 5.4}))"));
-    }
-
-    @Test
-    void n2() {
-        Config.EXPLICIT_TIMES_OPERATOR = true;
-        System.out.println(util.eval("+0.4263527439844309*v11*w11*0.0*2.025*2.0*1+3514.81638215433*2.7*2.6999999999999993*2.0*1+0.018094972454910804*v11^2.0*2.025*2.025*2.0*1+12.857124397455252*w11^2.0*2.025*0.675*2.0*1+8.633643065684728*v11*0.0*2.291831180523293*2.0*1+0.015439396292586009*2.025*2.025*4.0*3.0*u11^2.0-1.6257684296093071*w11*2.291831180523293*2.291831180523293*2.0*1+49.64135729857474*w11*1.1459155902616465*2.291831180523293*2.0*1+3.0178326474622765*2.7*2.7*2.0*1+14.733179292977349*2.291831180523293*0.0*3.0*2.0*u11+347.14235873129184*w11*2.291831180523293*1.1459155902616465*2.0*1+502.61874264806926*2.6999999999999993*2.7*2.0*1+2.5114249656362593*w11^2.0*0.675*2.025*2.0*1+0.7275644095297455*w11*2.025*0.0*3.0*2.0*u11"));
+        StaticStorage.isModeling = false;
     }
 }

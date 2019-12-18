@@ -1,6 +1,7 @@
 package modeling.mathmodeling.service;
 
 import modeling.mathmodeling.storage.StaticStorage;
+import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
@@ -57,6 +58,7 @@ public class MathServiceImpl implements MathService {
 //        System.out.println("Поток №" + threadNum +" Работает с " + expandedTerms.size() + "" + expandedTerms);
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
+        Config.EXPLICIT_TIMES_OPERATOR = true;
 
         for (String term : expandedTerms.keySet()) {
 //            System.out.println("Берем: " + term);
@@ -164,6 +166,7 @@ public class MathServiceImpl implements MathService {
         int i = 0;
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
+        Config.EXPLICIT_TIMES_OPERATOR = true;
         if (terms.isEmpty()) {
             return "+0.0";
         }
