@@ -21,12 +21,12 @@ public class ParseServiceImpl implements ParseService {
         if (carriageCharacter != '+' && carriageCharacter != '-') {
             carriageCharacter = '+';
         }
-        if (input.length() == 1) {
+        if (input.length() == 1 && beginIndex == 0) {
             terms.put(input, carriageCharacter.toString());
             return terms;
         }
         for (int i = 1; i < input.length(); i++) {
-            if (input.charAt(i) == '+' || (input.charAt(i) == '-' && input.charAt(i - 1) != '(' && input.charAt(i - 1) != 'E' && input.charAt(i - 1) != '*') || i == input.length() - 1) {
+            if (input.charAt(i) == '+' || (input.charAt(i) == '-' && input.charAt(i - 1) != '(' && input.charAt(i - 1) != 'E' && input.charAt(i - 1) != '*' && input.charAt(i - 1) != '^') || i == input.length() - 1) {
                 if (i == input.length() - 1) {
                     output = input.substring(beginIndex);
                 } else {
@@ -138,6 +138,11 @@ public class ParseServiceImpl implements ParseService {
     }
 
     @Override
+    public String expandAllDegreesByTerm(String input, String term) {
+        return null;
+    }
+
+    @Override
     public Boolean isSign(Character character) {
         switch (character) {
             case '+':
@@ -171,8 +176,7 @@ public class ParseServiceImpl implements ParseService {
             }
         }
         int value = Math.abs(Integer.parseInt(temp.substring(eIndex + 1, carriage)));
-        if(value > minusDegreeSimplify && negative)
-        {
+        if (value > minusDegreeSimplify && negative) {
             return "0.0";
         }
         if (negative) {
@@ -257,5 +261,29 @@ public class ParseServiceImpl implements ParseService {
             output.add(input);
         }
         return output;
+    }
+
+    @Override
+    public String expandMinus(String term) {
+        String output = "";
+        Character firstChar = term.charAt(0);
+        if(isSign(firstChar))
+        {
+            term = term.substring(1);
+            if (firstChar == '-') {
+                output = "+";
+            } else {
+                output = "-";
+            }
+        }
+        else {
+            output = "-";
+        }
+        String[] arr = term.split("-");
+        for (int i = 0; i < arr.length; i++) {
+            arr[i] = arr[i].replace("+", "-");
+        }
+        term = String.join("+", arr);
+        return output + term;
     }
 }

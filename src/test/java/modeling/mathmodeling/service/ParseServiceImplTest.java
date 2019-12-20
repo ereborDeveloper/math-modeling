@@ -19,6 +19,14 @@ class ParseServiceImplTest {
     ParseService parseService;
 
     @Test
+    void getTerms_whenSign_thenEmpty() {
+        String in = "+";
+        HashMap<String, String> expected = new HashMap<>();
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
     void getTerms_whenOne() {
         String in = "x";
         HashMap<String, String> expected = new HashMap<>();
@@ -85,6 +93,15 @@ class ParseServiceImplTest {
         String in = "Sin(x*a) - Sin(x*a) - Cos(x*a) + Sin(x*a) + Cos(x*a)";
         HashMap<String, String> expected = new HashMap<>();
         expected.put("Sin(x*a)", "+");
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
+    void getTerms_whenNegativeDegree_thenDontTouch(){
+        String in = "8.5270548796886186*10^-1";
+        HashMap<String, String> expected = new HashMap<>();
+        expected.put("8.5270548796886186*10^-1", "+");
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -211,5 +228,21 @@ class ParseServiceImplTest {
         expected.add("Sin(0.5817764173314433*xx)^2.0");
         expected.add("Sin(0.5817764173314433*yy)^2.0");
         assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
+    }
+
+    @Test
+    void expandMinus() {
+        String in = "-x+2x-5x+sin(x)";
+        assertEquals("+x-2x+5x-sin(x)", parseService.expandMinus(in));
+
+        in = "+x+2x-5x+sin(x)";
+        assertEquals("-x-2x+5x-sin(x)", parseService.expandMinus(in));
+
+        in = "x+2x-5x+sin(x)";
+        assertEquals("-x-2x+5x-sin(x)", parseService.expandMinus(in));
+    }
+
+    @Test
+    void expandAllDegreesByTerm() {
     }
 }

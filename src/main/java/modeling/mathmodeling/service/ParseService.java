@@ -10,6 +10,8 @@ public interface ParseService {
 
     String expandAllDegrees(String input);
 
+    String expandAllDegreesByTerm(String input, String term);
+
     Boolean isSign(Character character);
 
     String eReplace(String input, int minusDegreeSimplify);
@@ -17,4 +19,6 @@ public interface ParseService {
     String eReplaceAll(String input, int minusDegreeSimplify);
 
     ArrayList<String> splitAndSkipInsideBrackets(String input, Character splitBy);
+
+    String expandMinus(String term);
 }

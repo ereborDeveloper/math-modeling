@@ -59,9 +59,10 @@ public class MathServiceImpl implements MathService {
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
         Config.EXPLICIT_TIMES_OPERATOR = true;
+        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
+        Config.DOUBLE_EPSILON = 1.0E-40D;
 
         for (String term : expandedTerms.keySet()) {
-//            System.out.println("Берем: " + term);
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
             ArrayList<String> factorsToIntegrate = new ArrayList<>();
             for (String factor : factors) {
@@ -76,7 +77,6 @@ public class MathServiceImpl implements MathService {
             if (!factorsToIntegrate.isEmpty()) {
                 String toIntegrate = String.join("*", factorsToIntegrate);
                 if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
-//                    System.out.println("Key(" + threadNum + "): " + factorsToIntegrate);
                     String writeableResult = "";
                     if (type == "Integrate") {
                         writeableResult = util.eval("Integrate(" + toIntegrate + ", {" + variable + ", " + from + ", " + to + "})").toString();
@@ -84,9 +84,11 @@ public class MathServiceImpl implements MathService {
                     if (type == "NIntegrate") {
                         writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variable + ", " + from + ", " + to + "})").toString();
                     }
+//                    System.out.println(writeableResult);
                     StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
                     result.add(writeableResult);
                 } else {
+//                    System.out.println("Уже посчитан: " + StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
                     result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
                 }
             } else {
@@ -104,12 +106,15 @@ public class MathServiceImpl implements MathService {
             }
 //            parsedResult = parseService.eReplaceAll(parsedResult, 12);
 //            System.out.println("Результат: " + parsedResult);
-            output += sign + parsedResult;
+//            parsedResult = util.eval(parsedResult).toString().trim();
+            if(parsedResult!= "") {
+                output += sign + parsedResult;
+            }
 //            }
 //            System.out.println("Thread-" + threadNum + ": " + i + "/" + expandedTerms.size());
             i++;
         }
-        return output;
+        return output.replace("+-", "-").replace("--", "+");
     }
 
     @Override
@@ -172,6 +177,7 @@ public class MathServiceImpl implements MathService {
         }
 
         for (String term : terms.keySet()) {
+//            System.out.println("Берем :" + term);
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
             ArrayList<String> factorsToDerivative = new ArrayList<>();
             for (String factor : factors) {
@@ -208,9 +214,12 @@ public class MathServiceImpl implements MathService {
             } else {
                 parsedResult = String.join("*", result);
             }
-//            parsedResult = sign + parseService.eReplaceAll(parsedResult, 12);
-            parsedResult = sign + parsedResult.replace("+-", "-").replace("--", "+");
-            output += parsedResult;
+//            System.out.println("Результат :" + parsedResult);
+//            parsedResult = util.eval(parsedResult).toString().trim();
+//            System.out.println("Результат :" + parsedResult);
+            if(parsedResult!= "") {
+                output += sign + parsedResult;
+            }
 //            }
 //            System.out.println(parsedResult + " : " + i + "/" + expandedTerms.size());
             i++;
@@ -218,7 +227,7 @@ public class MathServiceImpl implements MathService {
         if (output.trim() == "") {
             return "+0.0";
         }
-        return output;
+        return output.replace("+-", "-").replace("--", "+");
     }
 
 }
