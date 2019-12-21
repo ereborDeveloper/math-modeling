@@ -12,6 +12,8 @@ public interface ParseService {
 
     String expandAllDegreesByTerm(String input, String term);
 
+    String expandDegreeByTerm(String input, String term);
+
     Boolean isSign(Character character);
 
     String eReplace(String input, int minusDegreeSimplify);

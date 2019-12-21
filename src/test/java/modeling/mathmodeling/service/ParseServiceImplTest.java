@@ -244,5 +244,7 @@ class ParseServiceImplTest {
 
     @Test
     void expandAllDegreesByTerm() {
+        String in = "psix^2.0+abs";
+        assertEquals("psix*psix+abs", parseService.expandDegreeByTerm(in, "psix"));
     }
 }

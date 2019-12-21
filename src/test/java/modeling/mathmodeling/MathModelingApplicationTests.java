@@ -16,6 +16,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -39,7 +41,9 @@ class MathModelingApplicationTests {
 
     @Test
     void modeling() throws Exception {
-        System.out.println("Starting..");
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+        LocalDateTime now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Starting..");
 
         BufferedWriter writer = new BufferedWriter(new FileWriter("1.txt"));
 
@@ -50,7 +54,7 @@ class MathModelingApplicationTests {
         StaticStorage.availableCores = Runtime.getRuntime().availableProcessors();
 
         IExpr result;
-        int n = 3;
+        int n = 4;
 
         double mu12 = 0.3;
         double mu21 = 0.3;
@@ -148,7 +152,7 @@ class MathModelingApplicationTests {
         util.eval("QX := G * (PsiX - Theta1) * k * h");
         util.eval("QY := G * k * h * (PsiY - Theta2)");
 
-        String Es = "NX * eX + NY * eY  + 0.5 * NXY * gammaXY + 0.5 * NYX * gammaXY + " +
+        String Es = "NX * eX + NY * eY  +  0.5 * NXY * gammaXY +  0.5 * NYX * gammaXY + " +
                 "MX * Chi1 + MY * Chi2 + MXY * Chi12 + MYX * Chi12 + " +
                 "QX * PsiX - QX * Theta1 + QY * PsiY - QY * Theta2 - 2 * q * W * A * B";
 
@@ -216,7 +220,8 @@ class MathModelingApplicationTests {
 
         StaticStorage.currentTask.clear();
         StaticStorage.expandResult.clear();
-        System.out.println("Expanding brackets..");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Expanding brackets..");
         int currentThreadNum = 0;
         for (String term : expandedTerms.keySet()) {
             // Вытащенное значение из интерпретатора
@@ -229,7 +234,7 @@ class MathModelingApplicationTests {
                 ExprEvaluator ut = new ExprEvaluator(true, 50000);
                 IExpr res = ut.eval("ExpandAll(" + value + ")");
                 String string = res.toString();
-                string = ut.eval(string).toString().replace("\n", "");
+//                string = ut.eval(string).toString().replace("\n", "");
                 if (finalSign.equals("-")) {
                     string = parseService.expandMinus(string);
                 } else {
@@ -250,12 +255,14 @@ class MathModelingApplicationTests {
             // Waiting for task executing
         }
 
-        System.out.println("Setting approx..");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Setting approx..");
 
         for (String f : approximateR.keySet()) {
             util.eval(f + ":=" + approximateR.get(f));
         }
-        System.out.println("Getting D..");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Getting D..");
         HashMap<String, String> computedD = new HashMap<>();
         computedD.put("dwx", util.eval("D(" + W + ", xx)").toString());
         computedD.put("dwy", util.eval("D(" + W + ", yy)").toString());
@@ -273,12 +280,20 @@ class MathModelingApplicationTests {
         computedD.put("dpsiydy", util.eval("D(" + PsiY + ", yy)").toString());
 
         //TODO: В многопоточку
-        System.out.println("Replacing D..");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Replacing..");
         Es = "";
         for (String value : StaticStorage.expandResult) {
-            //TODO: Оптимизация только для нужных переменных dux^2.0 = dux*dux; Cos(x)^2 = Cos(x)^2
-            value = parseService.expandAllDegrees(value);
+            now = LocalDateTime.now();
+            System.out.println(dtf.format(now) + "|" + "Replacing D..");
             for (String D : computedD.keySet()) {
+                now = LocalDateTime.now();
+                System.out.println(dtf.format(now) + "|" + "Expanding degrees..");
+                String[] arr = value.split("\\+");
+                for(int i = 0; i<arr.length;i++) {
+                    arr[i] = parseService.expandAllDegreesByTerm(arr[i], D);
+                }
+                value = String.join("+", arr);
                 value = value.replace(D, computedD.get(D));
             }
             value = value.replace("\n", "");
@@ -287,6 +302,9 @@ class MathModelingApplicationTests {
             value = value.replace("(3.0)", "(3)");
             value = value.replace("(4.0)", "(4)");
             value = value.replace("(5.0)", "(5)");
+
+            now = LocalDateTime.now();
+            System.out.println(dtf.format(now) + "|" + "Replacing app..");
             for (String f : approximateR.keySet()) {
                 value = value.replace(f, approximateR.get(f));
             }
@@ -295,11 +313,13 @@ class MathModelingApplicationTests {
 
 //        Es = util.eval(Es).toString().replace("\n", "");
 
-        System.out.println("Getting terms..");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Getting terms..");
         terms = parseService.getTermsFromString(Es);
         // y integrate
         String afterIntegrate = mathService.multithreadingIntegrate(terms, "yy", 0.0, b, "NIntegrate");
-        System.out.println("Взяли по Y");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Взяли по Y");
 
 //        afterIntegrate = util.eval(afterIntegrate).toString().replace("\n", "");
 
@@ -307,16 +327,19 @@ class MathModelingApplicationTests {
 
         // x integrate
         afterIntegrate = mathService.multithreadingIntegrate(terms, "xx", a1, a, "NIntegrate");
-        System.out.println("Взяли по X");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Взяли по X");
 
         expandedTerms = new HashMap<>();
 
-        System.out.println("Preparing terms for D..");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Preparing terms for D..");
         terms = parseService.getTermsFromString(afterIntegrate);
 /*        for (String term : terms.keySet()) {
             expandedTerms.put(util.eval(term).toString(), terms.get(term));
         }*/
-        System.out.println("Gradient");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Gradient");
         ConcurrentHashMap<String, String> gradient = mathService.multithreadingGradient(terms, coefficients);
 
 /*        System.out.println("to file..");
@@ -326,7 +349,8 @@ class MathModelingApplicationTests {
             writer.write(key + ":" + correctValue + "\n");
         }*/
 
-        System.out.println("Hessian");
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Hessian");
         ConcurrentHashMap<String, String> hessian = new ConcurrentHashMap<>();
         for (String key : gradient.keySet()) {
             terms = parseService.getTermsFromString(gradient.get(key));
@@ -340,17 +364,20 @@ class MathModelingApplicationTests {
             });
         }
 
-/*        for (String key : hessian.keySet()) {
+/*
+        for (String key : hessian.keySet()) {
             String correctValue = util.eval(hessian.get(key)).toString();
             hessian.replace(key, correctValue);
             writer.write(key + ":" + correctValue + "\n");
         }
 
-        writer.close();*/
+        writer.close();
+*/
 
+
+        now = LocalDateTime.now();
+        System.out.println(dtf.format(now) + "|" + "Loop");
 //        System.exit(0);
-
-        System.out.println("Loop");
 
         // Искомые коэффициенты
         HashMap<String, Double> grail = new HashMap<>();
@@ -376,7 +403,6 @@ class MathModelingApplicationTests {
                 for (String key : coefficients) {
                     String value = gradient.get(key);
                     value = value.replace("q", Double.toString(q));
-//                    value = parseService.eReplaceAll(value, 20);
                     for (String coef : coefficients) {
                         value = value.replace(coef, String.valueOf(grail.get(coef)));
                     }
@@ -385,7 +411,6 @@ class MathModelingApplicationTests {
                     currentGradientIndex++;
                 }
 //                System.out.println("Гессе считаем считаем");
-
                 int currentHessianI = 0;
                 for (String vi : coefficients) {
                     int currentHessianJ = 0;
@@ -424,7 +449,6 @@ class MathModelingApplicationTests {
                     t++;
                 }
 //                System.out.println("Максимум отклонения считаем");
-
                 firstStep = false;
             }
             System.out.println("Прогиб для q = " + q);
