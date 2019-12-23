@@ -1,14 +1,26 @@
 package modeling.mathmodeling.service;
 
+import org.ejml.data.DMatrix1Row;
+import org.ejml.data.DMatrixRMaj;
+import org.ejml.dense.row.CommonOps_DDRM;
+import org.ejml.simple.SimpleMatrix;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.matheclipse.core.eval.ExprEvaluator;
+import org.ojalgo.matrix.Primitive64Matrix;
+import org.ojalgo.matrix.QuaternionMatrix;
+import org.ojalgo.matrix.RationalMatrix;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.ujmp.core.DenseMatrix;
+import org.ujmp.core.Matrix;
+import org.ujmp.core.SparseMatrix;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
+import static org.ejml.dense.row.mult.MatrixVectorMult_DDRM.mult;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(SpringExtension.class)
@@ -70,4 +82,77 @@ class MathServiceImplTest {
         HashMap<String, String> terms = parseService.getTermsFromString(in);
         assertEquals("", mathService.partialDerivative(terms, "u11"));
     }
+
+    @Test
+    void partialDoubleIntegral() {
+
+        String in = "Sin(2*y)";
+        HashMap<String, String> terms = parseService.getTermsFromString(in.toLowerCase());
+
+        String a = mathService.partialIntegrate(0, terms, "y", 0.0, 5.4, "NIntegrate");
+
+        HashMap<String, String> exTerms = parseService.getTermsFromString(a);
+
+        String b = mathService.partialIntegrate(0, exTerms, "x", 0.0, 5.4, "NIntegrate");
+
+        System.out.println(b);
+
+        assertEquals(b, mathService.partialDoubleIntegralNumeric(terms, "x", 0.0, 5.4, "y", 0.0, 5.4));
+    }
+
+    @Test
+    void math() {
+        RationalMatrix.Factory matrixFactory = RationalMatrix.FACTORY;
+        double m[][] = {{12, 6, 3, 1}, {4, 1, 2, 3}, {2, 2, 4, 6}, {1, 3, 6, 9}};
+        RationalMatrix matrixA = matrixFactory.rows(m);
+        double g[] = {2, -0.024E-5, -2.24E18, -0.234E-4};
+        System.out.println(matrixA.invert());
+
+
+    }
+
+    @Test
+    void mm() {
+        double m[][] = {{11, 6, 3, 1}, {4, 1, 2, 3}, {2, 2, 4, 7}, {1, 3, 6, 9}};
+        double d[] = {1, 2, 3, 4};
+
+//        SimpleMatrix firstMatrix = new SimpleMatrix(m).invert();
+
+        SimpleMatrix firstMatrix = new SimpleMatrix(m).invert();
+        SimpleMatrix secondMatrix = new SimpleMatrix(new double[][]{d});
+        double[] multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
+        System.out.println(Arrays.toString(multiply));
+//        System.out.println(secondMatrix.mult(firstMatrix));
+
+//        System.out.println(firstMatrix.getDDRM());
+//        CommonOps_DDRM.mult(firstMatrix, secondMatrix, output);
+
+//        System.out.println(output);
+
+//        SparseMatrix dense = SparseMatrix.Factory.importFromArray(m);
+//        SparseMatrix r = SparseMatrix.Factory.importFromArray(d);
+
+/*
+// set entry at row 2 and column 3 to the value 5.0
+        System.out.println(dense);
+
+// print the final matrix on the console
+        System.out.println(dense);
+
+// create a sparse empty matrix with 4 rows and 4 columns
+        Matrix sparse = SparseMatrix.Factory.zeros(4, 4);
+        sparse.setAsDouble(2.0, 0, 0);
+
+// basic calculations
+        Matrix transpose = dense.transpose();
+        Matrix sum = dense.plus(sparse);
+        Matrix difference = dense.minus(sparse);
+        Matrix matrixProduct = dense.mtimes(sparse);
+        Matrix scaled = dense.times(2.0);
+
+        Matrix inverse = dense.inv();
+*/
+
+    }
+
 }

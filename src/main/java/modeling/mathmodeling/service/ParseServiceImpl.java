@@ -245,9 +245,18 @@ public class ParseServiceImpl implements ParseService {
                 break;
             }
         }
-        int value = Math.abs(Integer.parseInt(temp.substring(eIndex + 1, carriage)));
+        String toParse = temp.substring(eIndex + 1, carriage);
+        int value = 0;
+        try {
+             value = Math.abs(Integer.parseInt(toParse));
+        }
+        catch (NumberFormatException e)
+        {
+            e.printStackTrace();
+            System.exit(0);
+        }
         if (value > minusDegreeSimplify && negative) {
-            return "0.0";
+            return input.substring(0, eIndex) + "*0.0" + input.substring(carriage);
         }
         if (negative) {
             output += "0.";
@@ -267,6 +276,7 @@ public class ParseServiceImpl implements ParseService {
 
     @Override
     public String eReplaceAll(String input, int minusDegreeSimplify) {
+        input = input.replace(" ","");
         while (input.contains("e") || input.contains("E")) {
             input = eReplace(input, minusDegreeSimplify);
         }
@@ -349,11 +359,13 @@ public class ParseServiceImpl implements ParseService {
         else {
             output = "-";
         }
-        String[] arr = term.split("-");
+        String[] arr = term.split("\\+");
         for (int i = 0; i < arr.length; i++) {
-            arr[i] = arr[i].replace("+", "-");
+            arr[i] = arr[i].replace("E-", "ESaveMinus");
+            arr[i] = arr[i].replace("-", "+");
+            arr[i] = arr[i].replace("ESaveMinus", "E-");
         }
-        term = String.join("+", arr);
+        term = String.join("-", arr);
         return output + term;
     }
 }

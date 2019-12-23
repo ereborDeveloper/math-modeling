@@ -165,7 +165,7 @@ class ParseServiceImplTest {
     @Test
     void eReplaceAll() {
         String in = "1.18125*0.0*1.4224746001982408E-6*-7.494504917414604E-11";
-        assertEquals("0.0", parseService.eReplaceAll(in,10));
+        assertEquals("1.18125*0.0*1.4224746001982408*0.0000001*-7.494504917414604*0.0", parseService.eReplaceAll(in,10));
     }
 
     @Test
@@ -240,11 +240,21 @@ class ParseServiceImplTest {
 
         in = "x+2x-5x+sin(x)";
         assertEquals("-x-2x+5x-sin(x)", parseService.expandMinus(in));
+
+        in = "-x*4.1234142E-4+2x-5x+sin(x)";
+        assertEquals("+x*4.1234142E-4-2x+5x-sin(x)", parseService.expandMinus(in));
     }
 
     @Test
     void expandAllDegreesByTerm() {
         String in = "psix^2.0+abs";
         assertEquals("psix*psix+abs", parseService.expandDegreeByTerm(in, "psix"));
+
+        in = "psix^2+abs";
+        assertEquals("psix*psix+abs", parseService.expandDegreeByTerm(in, "psix"));
+
+        in = "-1237.5*dwx^2-1237";
+        assertEquals("-1237.5*dwx*dwx-1237", parseService.expandDegreeByTerm(in, "dwx"));
+
     }
 }

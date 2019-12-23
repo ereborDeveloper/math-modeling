@@ -1,5 +1,5 @@
 package modeling.mathmodeling.service;
 
 public interface ModelingService {
-    void model(int n);
+    void model(int n) throws Exception;
 }

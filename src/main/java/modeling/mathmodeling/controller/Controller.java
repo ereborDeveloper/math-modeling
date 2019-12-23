@@ -17,21 +17,23 @@ public class Controller {
     ModelingService modelingService;
 
     @GetMapping("/hello")
-    public String hello(){
+    public String hello() {
         return "Hello!";
     }
+
     @GetMapping("/modeling/status")
-    public Boolean getModelingStatus(){
+    public Boolean getModelingStatus() {
         return StaticStorage.isModeling;
     }
+
     @GetMapping("/modeling/output")
-    public ConcurrentHashMap<Double, Double> getModelingOutput()
-    {
+    public ConcurrentHashMap<Double, Double> getModelingOutput() {
         return StaticStorage.modelServiceOutput;
     }
-    @PostMapping(value = "/modeling/start", params = {"n"})
-    public void modelingStart(@RequestBody InputDTO input)
-    {
+
+    @PostMapping(value = "/modeling/start")
+    public void modelingStart(@RequestBody InputDTO input) throws Exception {
+        System.out.println(input);
         modelingService.model(input.getN());
     }
 

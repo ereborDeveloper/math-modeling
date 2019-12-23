@@ -1,5 +1,6 @@
 package modeling.mathmodeling.service;
 
+import groovy.lang.GroovyShell;
 import modeling.mathmodeling.storage.StaticStorage;
 import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
@@ -55,7 +56,6 @@ public class MathServiceImpl implements MathService {
     @Override
     public String partialIntegrate(int threadNum, HashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
         int i = 0;
-//        System.out.println("Поток №" + threadNum +" Работает с " + expandedTerms.size() + "" + expandedTerms);
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
         Config.EXPLICIT_TIMES_OPERATOR = true;
@@ -72,7 +72,6 @@ public class MathServiceImpl implements MathService {
             }
             // Удаляем все множители, которые не зависят от переменной интегрирования
             factors.removeAll(factorsToIntegrate);
-
             ArrayList<String> result = new ArrayList<>();
             if (!factorsToIntegrate.isEmpty()) {
                 String toIntegrate = String.join("*", factorsToIntegrate);
@@ -84,19 +83,15 @@ public class MathServiceImpl implements MathService {
                     if (type == "NIntegrate") {
                         writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variable + ", " + from + ", " + to + "})").toString();
                     }
-//                    System.out.println(writeableResult);
                     StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
                     result.add(writeableResult);
                 } else {
-//                    System.out.println("Уже посчитан: " + StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
                     result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
                 }
             } else {
                 // Если не зависит от переменной интегрирования, то подставляем пределы
                 result.add(String.valueOf(to - from));
             }
-            // SPEED UP плашка
-//            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
             String sign = expandedTerms.get(term);
             String parsedResult;
             if (!factors.isEmpty()) {
@@ -104,14 +99,9 @@ public class MathServiceImpl implements MathService {
             } else {
                 parsedResult = String.join("*", result);
             }
-//            parsedResult = parseService.eReplaceAll(parsedResult, 12);
-//            System.out.println("Результат: " + parsedResult);
-//            parsedResult = util.eval(parsedResult).toString().trim();
-            if(parsedResult!= "") {
+            if (parsedResult != "") {
                 output += sign + parsedResult;
             }
-//            }
-//            System.out.println("Thread-" + threadNum + ": " + i + "/" + expandedTerms.size());
             i++;
         }
         return output.replace("+-", "-").replace("--", "+");
@@ -121,6 +111,7 @@ public class MathServiceImpl implements MathService {
     public ConcurrentHashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, ArrayList<String> variables) {
         HashMap<String, String> gradient = new HashMap<>();
         StaticStorage.derivativeResult.clear();
+        StaticStorage.alreadyComputedDerivatives.clear();
         for (String variable : variables) {
             Thread thread = new Thread(() -> {
                 StaticStorage.gradient.put(variable, partialDerivative(expandedTerms, variable));
@@ -138,6 +129,7 @@ public class MathServiceImpl implements MathService {
     @Override
     public String multithreadingDerivative(HashMap<String, String> expandedTerms, String variable) {
         StaticStorage.derivativeResult.clear();
+        StaticStorage.alreadyComputedDerivatives.clear();
         int blockSize = expandedTerms.size() / availableCores;
         for (int i = 0; i < availableCores; i++) {
             List<String> partialKeys;
@@ -167,7 +159,6 @@ public class MathServiceImpl implements MathService {
 
     @Override
     public String partialDerivative(HashMap<String, String> terms, String variable) {
-        StaticStorage.alreadyComputedIntegrals.clear();
         int i = 0;
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
@@ -177,6 +168,10 @@ public class MathServiceImpl implements MathService {
         }
 
         for (String term : terms.keySet()) {
+            if(!term.contains(variable))
+            {
+                continue;
+            }
 //            System.out.println("Берем :" + term);
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
             ArrayList<String> factorsToDerivative = new ArrayList<>();
@@ -192,7 +187,7 @@ public class MathServiceImpl implements MathService {
             if (!factorsToDerivative.isEmpty()) {
                 String toDerivate = String.join("*", factorsToDerivative);
                 if (!StaticStorage.alreadyComputedDerivatives.containsKey(toDerivate)) {
-//                    System.out.println("Key: " + toDerivate);
+                    System.out.println("Берем по " + variable + " | Key: " + toDerivate);
                     String writeableResult = "";
                     writeableResult += util.eval("D(" + toDerivate + ", " + variable + ")").toString();
                     writeableResult = writeableResult.replace("\n", "");
@@ -202,11 +197,9 @@ public class MathServiceImpl implements MathService {
                     result.add(StaticStorage.alreadyComputedDerivatives.get(toDerivate));
                 }
             } else {
-                // Если не зависит от переменной, пропускаем подставляем пределы
+                // Если не зависит от переменной, пропускаем
                 continue;
             }
-            // SPEED UP плашка
-//            if (!((result.contains("(0.0)") || result.contains("*0.0") || result.contains("0.0*")))) {
             String sign = terms.get(term);
             String parsedResult;
             if (!factors.isEmpty()) {
@@ -214,18 +207,208 @@ public class MathServiceImpl implements MathService {
             } else {
                 parsedResult = String.join("*", result);
             }
-//            System.out.println("Результат :" + parsedResult);
-//            parsedResult = util.eval(parsedResult).toString().trim();
-//            System.out.println("Результат :" + parsedResult);
-            if(parsedResult!= "") {
+            System.out.println(parsedResult);
+            if (parsedResult != "") {
                 output += sign + parsedResult;
             }
 //            }
-//            System.out.println(parsedResult + " : " + i + "/" + expandedTerms.size());
             i++;
         }
         if (output.trim() == "") {
             return "+0.0";
+        }
+        return output.replace("+-", "-").replace("--", "+");
+    }
+
+    @Override
+    public String partialDoubleIntegral(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+        String output = "";
+        ExprEvaluator util = new ExprEvaluator(true, 50000);
+        Config.EXPLICIT_TIMES_OPERATOR = true;
+/*        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
+        Config.DOUBLE_EPSILON = 1.0E-40D;*/
+
+        for (String term : expandedTerms.keySet()) {
+            ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
+            ArrayList<String> factorsToIntegrateX = new ArrayList<>();
+            for (String factor : factors) {
+                if (factor.contains(variableX)) {
+                    factorsToIntegrateX.add(factor);
+                }
+            }
+            ArrayList<String> factorsToIntegrateY = new ArrayList<>();
+            for (String factor : factors) {
+                if (factor.contains(variableY)) {
+                    factorsToIntegrateY.add(factor);
+                }
+            }
+            factors.removeAll(factorsToIntegrateX);
+            factors.removeAll(factorsToIntegrateY);
+
+            ArrayList<String> result = new ArrayList<>();
+            if (!factorsToIntegrateX.isEmpty()) {
+                String toIntegrate = String.join("*", factorsToIntegrateX);
+                if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
+                    String writeableResult = "";
+                    writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
+                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    result.add(writeableResult);
+                } else {
+                    result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
+                }
+            } else {
+                result.add(String.valueOf(toX - fromX));
+            }
+            if (!factorsToIntegrateY.isEmpty()) {
+                String toIntegrate = String.join("*", factorsToIntegrateY);
+                if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
+                    String writeableResult = "";
+                    writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableY + ", " + fromY + ", " + toY + "})").toString();
+                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    result.add(writeableResult);
+                } else {
+                    result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
+                }
+            } else {
+                result.add(String.valueOf(toY - fromY));
+            }
+            String sign = expandedTerms.get(term);
+            String parsedResult;
+            if (!factors.isEmpty()) {
+                parsedResult = String.join("*", factors) + "*" + String.join("*", result);
+            } else {
+                parsedResult = String.join("*", result);
+            }
+            if (parsedResult != "") {
+                output += sign + parsedResult;
+            }
+        }
+
+        return output.replace("+-", "-").replace("--", "+");
+    }
+
+    @Override
+    public String multithreadingDoubleNumericIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+        StaticStorage.integrateResult.clear();
+        int blockSize = expandedTerms.size() / availableCores;
+        for (int i = 0; i < availableCores; i++) {
+            List<String> partialKeys;
+            if (i == availableCores - 1) {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
+            } else {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
+            }
+            HashMap<String, String> partialTerms = new HashMap<>();
+            for (String key : partialKeys) {
+                partialTerms.put(key, expandedTerms.get(key));
+            }
+            // adding terms to runnable
+            int currentThreadNum = i;
+            Thread thread = new Thread(() -> {
+                StaticStorage.integrateResult.add(this.partialDoubleIntegralNumeric(partialTerms, variableX, fromX, toX, variableY, fromY, toY));
+                StaticStorage.currentTask.remove(currentThreadNum);
+            });
+            StaticStorage.currentTask.put(currentThreadNum, thread);
+            thread.start();
+        }
+        while (StaticStorage.currentTask.size() > 0) {
+            // Waiting for task executing
+        }
+        return String.join("", StaticStorage.integrateResult);
+    }
+
+    @Override
+    public String multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+        StaticStorage.integrateResult.clear();
+        int blockSize = expandedTerms.size() / availableCores;
+        for (int i = 0; i < availableCores; i++) {
+            List<String> partialKeys;
+            if (i == availableCores - 1) {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
+            } else {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
+            }
+            HashMap<String, String> partialTerms = new HashMap<>();
+            for (String key : partialKeys) {
+                partialTerms.put(key, expandedTerms.get(key));
+            }
+            // adding terms to runnable
+            int currentThreadNum = i;
+            Thread thread = new Thread(() -> {
+                StaticStorage.integrateResult.add(this.partialDoubleIntegral(partialTerms, variableX, fromX, toX, variableY, fromY, toY));
+                StaticStorage.currentTask.remove(currentThreadNum);
+            });
+            StaticStorage.currentTask.put(currentThreadNum, thread);
+            thread.start();
+        }
+        while (StaticStorage.currentTask.size() > 0) {
+            // Waiting for task executing
+        }
+        return String.join("", StaticStorage.integrateResult);
+    }
+
+    @Override
+    public String partialDoubleIntegralNumeric(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+        StaticStorage.alreadyComputedIntegrals.clear();
+        GroovyShell shell = new GroovyShell();
+
+        ExprEvaluator util = new ExprEvaluator(true, 50000);
+        String output = "";
+        Config.EXPLICIT_TIMES_OPERATOR = true;
+        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
+        Config.DOUBLE_EPSILON = 1.0E-40D;
+        Double step = 0.01;
+
+        int i = 0;
+        for (String term : expandedTerms.keySet()) {
+            ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
+            ArrayList<String> factorsToIntegrate = new ArrayList<>();
+            for (String factor : factors) {
+                if (factor.contains(variableX) || factor.contains(variableY)) {
+                    factorsToIntegrate.add(factor);
+                }
+            }
+            // Удаляем все множители, которые не зависят от переменной интегрирования
+            factors.removeAll(factorsToIntegrate);
+            ArrayList<String> result = new ArrayList<>();
+            if (!factorsToIntegrate.isEmpty()) {
+                String toIntegrate = String.join("*", factorsToIntegrate);
+                System.out.println(toIntegrate);
+                if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
+                    Double numericResult = 0.0;
+                    for (double x = fromX; x < toX; x += step) {
+                        for (double y = fromY; y < toY; y += step) {
+                            Double v = util.eval(toIntegrate.replace(variableX, String.valueOf(x + 0.5 * step)).replace(variableY, String.valueOf(y + 0.5 * step))).evalDouble() * step * step;
+                            Double f_bl = util.eval(toIntegrate.replace(variableX, String.valueOf(x)).replace(variableY, String.valueOf(y))).evalDouble();
+                            Double f_br = util.eval(toIntegrate.replace(variableX, String.valueOf(x + step)).replace(variableY, String.valueOf(y))).evalDouble();
+                            Double f_ur = util.eval(toIntegrate.replace(variableX, String.valueOf(x + step)).replace(variableY, String.valueOf(y + step))).evalDouble();
+                            Double f_ul = util.eval(toIntegrate.replace(variableX, String.valueOf(x)).replace(variableY, String.valueOf(y + step))).evalDouble();
+                            numericResult = numericResult + (2 * v + 0.25 * step * step * (f_bl + f_br + f_ul + f_ur)) / 3.0;
+                        }
+                    }
+                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, numericResult.toString());
+                    result.add(numericResult.toString());
+                } else {
+                    System.out.println("Повтор!");
+                    result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
+                }
+            } else {
+                // Если не зависит от переменных интегрирования, то подставляем пределы
+                result.add(String.valueOf(toX - fromX));
+                result.add(String.valueOf(toY - fromY));
+            }
+            String sign = expandedTerms.get(term);
+            String parsedResult;
+            if (!factors.isEmpty()) {
+                parsedResult = String.join("*", factors) + "*" + String.join("*", result);
+            } else {
+                parsedResult = String.join("*", result);
+            }
+            if (parsedResult != "") {
+                output += sign + parsedResult;
+            }
+            System.out.println(i + "/" + expandedTerms.size());
+            i++;
         }
         return output.replace("+-", "-").replace("--", "+");
     }
