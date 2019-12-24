@@ -14,9 +14,7 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static modeling.mathmodeling.storage.StaticStorage.availableCores;
@@ -78,7 +76,7 @@ public class ModelingServiceImpl implements ModelingService {
         ArrayList<String> PsiXTemp = new ArrayList<>();
         ArrayList<String> PsiYTemp = new ArrayList<>();
 
-        ArrayList<String> coefficients = new ArrayList<>();
+        LinkedList<String> coefficients = new LinkedList<>();
 
         for (int i = 1; i <= n; i++) {
             for (int j = 1; j <= n; j++) {
@@ -282,7 +280,7 @@ public class ModelingServiceImpl implements ModelingService {
             System.out.println(dtf.format(now) + "|" + "Replacing D..");
             for (String D : computedD.keySet()) {
                 now = LocalDateTime.now();
-                System.out.println(dtf.format(now) + "|" + "Expanding degrees..");
+//                System.out.println(dtf.format(now) + "|" + "Expanding degrees..");
                 value = value.replace("\n", "");
                 String[] arr = value.split("\\+");
                 for (int i = 0; i < arr.length; i++) {
@@ -300,11 +298,9 @@ public class ModelingServiceImpl implements ModelingService {
             System.out.println(dtf.format(now) + "|" + "Replacing app..");
             for (String f : approximateR.keySet()) {
                 value = value.replace(f, approximateR.get(f));
-//                value = parseService.expandAllDegreesAndReplaceTerm(value, f, approximateR.get(f));
             }
             now = LocalDateTime.now();
-            System.out.println(dtf.format(now) + "|" + "Expanding app brackets..");
-//            value = "+" + util.eval("ExpandAll(" + value + ")").toString();
+//            System.out.println(dtf.format(now) + "|" + "Expanding app brackets..");
             Es += value;
         }
 
@@ -320,7 +316,7 @@ public class ModelingServiceImpl implements ModelingService {
         now = LocalDateTime.now();
         System.out.println(dtf.format(now) + "|" + "Preparing terms for D..");
         terms = parseService.getTermsFromString(afterIntegrate);
-        // Взятие первых производных и построение градиента
+        // Взятие первых производных и построение градиента (при n = 5 - 8 минут, надо бы ускорить)
         now = LocalDateTime.now();
         System.out.println(dtf.format(now) + "|" + "Gradient");
         ConcurrentHashMap<String, String> gradient = mathService.multithreadingGradient(terms, coefficients);
@@ -328,7 +324,7 @@ public class ModelingServiceImpl implements ModelingService {
         now = LocalDateTime.now();
         System.out.println(dtf.format(now) + "|" + "to file..");
         for (String key : gradient.keySet()) {
-            String correctValue = util.eval(gradient.get(key)).toString();
+            String correctValue = util.eval(gradient.get(key)).toString().replace("\n", "");
             gradient.replace(key, correctValue);
             writer.write(key + ":" + correctValue + "\n");
         }
@@ -357,25 +353,27 @@ public class ModelingServiceImpl implements ModelingService {
         now = LocalDateTime.now();
         System.out.println(dtf.format(now) + "|" + "Loop");
         // Искомые коэффициенты
-        HashMap<String, Double> grail = new HashMap<>();
+        LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
+        double[] computedGradient = new double[N * 5];
+        double[][] computedHessian = new double[N * 5][N * 5];
         for (String coef : coefficients) {
-            grail.put(coef, -10.0);
+            grail.put(coef, 0.0);
         }
         double q = 0.0;
         Double eps = 0.0000001;
         while (q < 3.5) {
             Double max = 10.0;
             int zz = 0;
-            while (zz < 1) {
+            boolean firstStep = true;
+            while (zz < 100) {
                 zz++;
-                double[] computedGradient = new double[N * 5];
-                double[][] computedHessian = new double[N * 5][N * 5];
                 int currentGradientIndex = 0;
                 for (String key : coefficients) {
                     String value = gradient.get(key);
                     value = value.replace("q", Double.toString(q));
                     for (String coef : coefficients) {
-                        value = value.replace(coef, String.valueOf(grail.get(coef)));
+                        String valueOfCoef = String.valueOf(grail.get(coef));
+                        value = value.replace(coef, valueOfCoef);
                     }
                     String v = util.eval(value).toString();
                     computedGradient[currentGradientIndex] = Double.parseDouble(v);
@@ -388,7 +386,8 @@ public class ModelingServiceImpl implements ModelingService {
                         String value = hessian.get(vi + "|" + vj);
                         value = value.replace("q", Double.toString(q));
                         for (String coef : coefficients) {
-                            value = value.replace(coef, String.valueOf(grail.get(coef)));
+                            String getValueFromGrail = String.valueOf(grail.get(coef));
+                            value = value.replace(coef, getValueFromGrail);
                         }
                         String v = util.eval(value).toString();
                         computedHessian[currentHessianI][currentHessianJ] = Double.parseDouble(v);
@@ -397,21 +396,12 @@ public class ModelingServiceImpl implements ModelingService {
                     currentHessianI++;
                 }
 
-                System.out.println(Arrays.deepToString(computedHessian));
                 SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
-                double d = firstMatrix.determinant();
-                System.out.println("Определитель матрицы Гесса: " + d);
                 // xi+1 = xi - H(xi)^-1 * G(xi);
                 firstMatrix = firstMatrix.invert();
                 SimpleMatrix secondMatrix = new SimpleMatrix(new double[][]{computedGradient});
                 double[] multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
-//                System.out.println(Arrays.toString(multiply));
-/*                DoubleMatrix doubleMatrix = new DoubleMatrix(invertedComputedHessian);
-                DoubleMatrix inv = Solve.pinv(doubleMatrix);
-                 = inv.mulColumnVector(new DoubleMatrix(computedGradient)).toArray();
-                System.out.println(Arrays.deepToString(invertedComputedHessian));
-                System.out.println(Arrays.deepToString(inv.toArray2()));
-                System.out.println(Arrays.toString(multiply));*/
+
                 int t = 0;
                 for (String key : grail.keySet()) {
                     Double temp = Math.abs(grail.get(key) - multiply[t]);
@@ -420,15 +410,16 @@ public class ModelingServiceImpl implements ModelingService {
                     }
                     t++;
                 }
-//                System.out.println(max);
-                if (max < eps) {
+                if (max < eps && !firstStep) {
                     break;
                 }
                 t = 0;
                 for (String key : grail.keySet()) {
-                    grail.put(key, grail.get(key) - multiply[t]);
+                    grail.replace(key, grail.get(key) - multiply[t]);
                     t++;
                 }
+
+                firstStep = false;
             }
             String Woutput = util.eval("W").toString();
             Woutput = Woutput.replace("xx", String.valueOf(a / 2)).replace("yy", String.valueOf(b / 2));
@@ -438,7 +429,7 @@ public class ModelingServiceImpl implements ModelingService {
             }
             Woutput = Woutput.replace("--", "+").replace("+-", "-");
             Woutput = util.eval(Woutput).toString();
-            System.out.println("Вывод:" + Woutput);
+            System.out.println("q: " + q + " Вывод: " + Woutput);
             StaticStorage.modelServiceOutput.put(q, Double.parseDouble(Woutput));
             q += 0.001;
         }

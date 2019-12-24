@@ -1,7 +1,7 @@
 package modeling.mathmodeling.service;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.concurrent.ConcurrentHashMap;
 
 public interface MathService {
@@ -14,7 +14,7 @@ public interface MathService {
 
     String partialIntegrate(int threadNum, HashMap<String, String> expandedTerms, String variable, double from, double to, String type);
 
-    ConcurrentHashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, ArrayList<String> variables);
+    ConcurrentHashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, LinkedList<String> variables);
 
     String multithreadingDerivative(HashMap<String, String> expandedTerms, String variable);
 

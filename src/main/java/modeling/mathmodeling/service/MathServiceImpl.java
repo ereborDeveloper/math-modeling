@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -108,7 +109,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public ConcurrentHashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, ArrayList<String> variables) {
+    public ConcurrentHashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, LinkedList<String> variables) {
         HashMap<String, String> gradient = new HashMap<>();
         StaticStorage.derivativeResult.clear();
         StaticStorage.alreadyComputedDerivatives.clear();
