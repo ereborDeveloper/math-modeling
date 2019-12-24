@@ -1,5 +1,6 @@
 package modeling.mathmodeling.service;
 
+import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -213,6 +214,83 @@ public class ParseServiceImpl implements ParseService {
     }
 
     @Override
+    public String expandAllDegreesAndReplaceTerm(String input, String term, String replace) {
+        while (input.contains(term + "^")) {
+            input = expandDegreeAndReplaceTerm(input, term, replace);
+        }
+        return input.replace(term, replace);
+    }
+
+    @Override
+    public String expandDegreeAndReplaceTerm(String input, String term, String replace) {
+        ExprEvaluator util = new ExprEvaluator(true, 50000);
+        int cutRightIndex;
+        int cutLeftIndex;
+        input = input.replaceAll(" ", "");
+        input = input.replaceAll("\n", "");
+        String temp = input;
+        String toExpand;
+        int degree;
+        int degreeIndex = input.indexOf(term + "^") + term.length();
+        int closedCounter = 0;
+        int carriage = degreeIndex;
+
+        // Сразу определим правую границу, после которой символы останутся в строке
+        // ^2.0
+        // ^2.0*()
+        // ^2.0)
+        cutRightIndex = degreeIndex + 1;
+        while (cutRightIndex < input.length()) {
+            char symbol = input.charAt(cutRightIndex);
+            if (isSign(symbol) || symbol == ')') {
+                break;
+            }
+            cutRightIndex++;
+        }
+
+        // Сдвигаем каретку на символ влево от степени. Если обнаруживаем закрывающую скобку, значит будем умножать скобку саму на себя
+        carriage--;
+        if (input.charAt(carriage) == ')') {
+            // Одна открытая скобка должна быть, раз встретили закрывающий символ
+            closedCounter++;
+            carriage--;
+            while (closedCounter != 0) {
+                char analysingChar = input.charAt(carriage);
+                if (analysingChar == '(') {
+                    closedCounter--;
+                }
+                if (analysingChar == ')') {
+                    closedCounter++;
+                }
+                if (closedCounter == 0) {
+                    break;
+                }
+                carriage--;
+            }
+        }
+
+        cutLeftIndex = carriage;
+        while (cutLeftIndex > 0) {
+            char symbol = input.charAt(cutLeftIndex - 1);
+            if (isSign(symbol) || symbol == '(') {
+                break;
+            }
+            cutLeftIndex--;
+        }
+
+        toExpand = input.substring(cutLeftIndex, degreeIndex);
+
+        degree = Integer.parseInt(input.substring(degreeIndex + 1, degreeIndex + 2));
+        ArrayList<String> expanded = new ArrayList<>();
+        for (int j = 0; j < degree; j++) {
+            expanded.add(toExpand);
+        }
+        String expandedStr = util.eval("ExpandAll(" + String.join("*", expanded).replaceAll(term, "(" + replace + ")") + ")").toString().replace("\n", "");
+        input = temp.substring(0, cutLeftIndex) + expandedStr + temp.substring(cutRightIndex);
+        return input;
+    }
+
+    @Override
     public Boolean isSign(Character character) {
         switch (character) {
             case '+':
@@ -248,10 +326,8 @@ public class ParseServiceImpl implements ParseService {
         String toParse = temp.substring(eIndex + 1, carriage);
         int value = 0;
         try {
-             value = Math.abs(Integer.parseInt(toParse));
-        }
-        catch (NumberFormatException e)
-        {
+            value = Math.abs(Integer.parseInt(toParse));
+        } catch (NumberFormatException e) {
             e.printStackTrace();
             System.exit(0);
         }
@@ -276,7 +352,7 @@ public class ParseServiceImpl implements ParseService {
 
     @Override
     public String eReplaceAll(String input, int minusDegreeSimplify) {
-        input = input.replace(" ","");
+        input = input.replace(" ", "");
         while (input.contains("e") || input.contains("E")) {
             input = eReplace(input, minusDegreeSimplify);
         }
@@ -347,16 +423,14 @@ public class ParseServiceImpl implements ParseService {
     public String expandMinus(String term) {
         String output = "";
         Character firstChar = term.charAt(0);
-        if(isSign(firstChar))
-        {
+        if (isSign(firstChar)) {
             term = term.substring(1);
             if (firstChar == '-') {
                 output = "+";
             } else {
                 output = "-";
             }
-        }
-        else {
+        } else {
             output = "-";
         }
         String[] arr = term.split("\\+");

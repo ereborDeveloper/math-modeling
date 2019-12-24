@@ -187,7 +187,7 @@ public class MathServiceImpl implements MathService {
             if (!factorsToDerivative.isEmpty()) {
                 String toDerivate = String.join("*", factorsToDerivative);
                 if (!StaticStorage.alreadyComputedDerivatives.containsKey(toDerivate)) {
-                    System.out.println("Берем по " + variable + " | Key: " + toDerivate);
+//                    System.out.println("Берем по " + variable + " | Key: " + toDerivate);
                     String writeableResult = "";
                     writeableResult += util.eval("D(" + toDerivate + ", " + variable + ")").toString();
                     writeableResult = writeableResult.replace("\n", "");
@@ -207,7 +207,7 @@ public class MathServiceImpl implements MathService {
             } else {
                 parsedResult = String.join("*", result);
             }
-            System.out.println(parsedResult);
+//            System.out.println(parsedResult);
             if (parsedResult != "") {
                 output += sign + parsedResult;
             }
@@ -373,7 +373,7 @@ public class MathServiceImpl implements MathService {
             ArrayList<String> result = new ArrayList<>();
             if (!factorsToIntegrate.isEmpty()) {
                 String toIntegrate = String.join("*", factorsToIntegrate);
-                System.out.println(toIntegrate);
+//                System.out.println(toIntegrate);
                 if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
                     Double numericResult = 0.0;
                     for (double x = fromX; x < toX; x += step) {
@@ -407,7 +407,7 @@ public class MathServiceImpl implements MathService {
             if (parsedResult != "") {
                 output += sign + parsedResult;
             }
-            System.out.println(i + "/" + expandedTerms.size());
+//            System.out.println(i + "/" + expandedTerms.size());
             i++;
         }
         return output.replace("+-", "-").replace("--", "+");

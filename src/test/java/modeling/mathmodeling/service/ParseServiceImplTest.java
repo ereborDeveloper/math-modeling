@@ -257,4 +257,16 @@ class ParseServiceImplTest {
         assertEquals("-1237.5*dwx*dwx-1237", parseService.expandDegreeByTerm(in, "dwx"));
 
     }
+
+    @Test
+    void expandDegreeAndReplaceTerm() {
+        String in = "psix^2.0+abs";
+        assertEquals("Cos(x)^2+2*Cos(x)*tg(x)+tg(x)^2+abs", parseService.expandDegreeAndReplaceTerm(in, "psix", "cos(x) + tg(x)"));
+    }
+
+    @Test
+    void expandDegreeAndReplaceTerm_multiple() {
+        String in = "psix^2.0 + psix^3.0";
+        assertEquals("Abs+Cos(x)^2+2*Cos(x)*tg(x)+tg(x)^2", parseService.expandAllDegreesAndReplaceTerm(in, "psix", "cos(x) + a"));
+    }
 }
