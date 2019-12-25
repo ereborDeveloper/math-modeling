@@ -2,6 +2,7 @@ package modeling.mathmodeling.service;
 
 import groovy.lang.GroovyShell;
 import modeling.mathmodeling.storage.StaticStorage;
+import org.apache.commons.lang3.StringUtils;
 import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
@@ -105,7 +106,8 @@ public class MathServiceImpl implements MathService {
             }
             i++;
         }
-        return output.replace("+-", "-").replace("--", "+");
+        output = StringUtils.replace(output, "+-", "-");
+        return StringUtils.replace(output, "--", "+");
     }
 
     @Override
@@ -221,7 +223,8 @@ public class MathServiceImpl implements MathService {
         if (output.trim() == "") {
             return "+0.0";
         }
-        return output.replace("+-", "-").replace("--", "+");
+        output = StringUtils.replace(output, "+-", "-");
+        return StringUtils.replace(output, "--", "+");
     }
 
     @Override
@@ -294,8 +297,8 @@ public class MathServiceImpl implements MathService {
                 output += sign + parsedResult;
             }
         }
-
-        return output.replace("+-", "-").replace("--", "+");
+        output = StringUtils.replace(output, "+-", "-");
+        return StringUtils.replace(output, "--", "+");
     }
 
     @Override
@@ -421,7 +424,8 @@ public class MathServiceImpl implements MathService {
 //            System.out.println(i + "/" + expandedTerms.size());
             i++;
         }
-        return output.replace("+-", "-").replace("--", "+");
+        output = StringUtils.replace(output, "+-", "-");
+        return StringUtils.replace(output, "--", "+");
     }
 
 }
