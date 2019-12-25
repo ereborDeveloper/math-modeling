@@ -64,6 +64,32 @@ public class ParseServiceImpl implements ParseService {
     }
 
     @Override
+    public double getNumericResult(String input) {
+        double numericOutput = 0.0;
+        String output;
+        HashMap<String, String> terms = getTermsFromString(input);
+        for (String term : terms.keySet()) {
+            int lastPosition = 0;
+            Character currentSign;
+            for (int i = 0; i < term.length(); i++) {
+                if (term.charAt(i) == '+') {
+                    currentSign = '+';
+                }
+                if (term.charAt(i) == '-') {
+                    currentSign = '+';
+                }
+                if (term.charAt(i) == '*') {
+                    currentSign = '+';
+                }
+                if (term.charAt(i) == '/') {
+                    currentSign = '+';
+                }
+            }
+        }
+        return numericOutput;
+    }
+
+    @Override
     public String expandDegree(String input) {
         int cutRightIndex;
         int cutLeftIndex;
@@ -156,12 +182,12 @@ public class ParseServiceImpl implements ParseService {
         }
         int cutRightIndex;
         int cutLeftIndex;
-        input = input.replaceAll(" ", "");
-        input = input.replaceAll("\n", "");
         String temp = input;
+        temp = temp.replaceAll(" ", "");
+        temp = temp.replaceAll("\n", "");
         String toExpand;
         int degree = 0;
-        int degreeIndex = input.indexOf(term + "^") + term.length();
+        int degreeIndex = temp.indexOf(term + "^") + term.length();
         int closedCounter = 0;
         int carriage = degreeIndex;
 
@@ -170,8 +196,8 @@ public class ParseServiceImpl implements ParseService {
         // ^2.0*()
         // ^2.0)
         cutRightIndex = degreeIndex + 1;
-        while (cutRightIndex < input.length()) {
-            char symbol = input.charAt(cutRightIndex);
+        while (cutRightIndex < temp.length()) {
+            char symbol = temp.charAt(cutRightIndex);
             if (isSign(symbol) || symbol == ')') {
                 break;
             }
@@ -180,12 +206,12 @@ public class ParseServiceImpl implements ParseService {
 
         // Сдвигаем каретку на символ влево от степени. Если обнаруживаем закрывающую скобку, значит будем умножать скобку саму на себя
         carriage--;
-        if (input.charAt(carriage) == ')') {
+        if (temp.charAt(carriage) == ')') {
             // Одна открытая скобка должна быть, раз встретили закрывающий символ
             closedCounter++;
             carriage--;
             while (closedCounter != 0) {
-                char analysingChar = input.charAt(carriage);
+                char analysingChar = temp.charAt(carriage);
                 if (analysingChar == '(') {
                     closedCounter--;
                 }
@@ -201,16 +227,16 @@ public class ParseServiceImpl implements ParseService {
 
         cutLeftIndex = carriage;
         while (cutLeftIndex > 0) {
-            char symbol = input.charAt(cutLeftIndex - 1);
+            char symbol = temp.charAt(cutLeftIndex - 1);
             if (isSign(symbol) || symbol == '(') {
                 break;
             }
             cutLeftIndex--;
         }
 
-        toExpand = input.substring(cutLeftIndex, degreeIndex);
+        toExpand = temp.substring(cutLeftIndex, degreeIndex);
         try {
-            degree = Integer.parseInt(input.substring(degreeIndex + 1, degreeIndex + 2));
+            degree = Integer.parseInt(temp.substring(degreeIndex + 1, degreeIndex + 2));
         } catch (Exception e) {
             System.out.println("Тэк");
             System.out.println(input);

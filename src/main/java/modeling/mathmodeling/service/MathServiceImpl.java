@@ -193,6 +193,10 @@ public class MathServiceImpl implements MathService {
                     writeableResult = writeableResult.replace("\n", "");
                     StaticStorage.alreadyComputedDerivatives.put(toDerivate, writeableResult);
                     result.add(writeableResult);
+                    if(writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*"))
+                    {
+                        continue;
+                    }
                 } else {
                     result.add(StaticStorage.alreadyComputedDerivatives.get(toDerivate));
                 }
@@ -256,6 +260,10 @@ public class MathServiceImpl implements MathService {
                     writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
                     StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
                     result.add(writeableResult);
+                    if(writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*"))
+                    {
+                        continue;
+                    }
                 } else {
                     result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
                 }

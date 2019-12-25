@@ -41,7 +41,7 @@ class MathModelingApplicationTests {
     void modeling() throws Exception {
         BufferedWriter writer = new BufferedWriter(new FileWriter("1.txt"));
 
-        modelingService.model(3);
+        modelingService.model(2);
 
         ArrayList<Double> sortedOutputKeyList = new ArrayList<>(StaticStorage.modelServiceOutput.keySet());
         Collections.sort(sortedOutputKeyList);

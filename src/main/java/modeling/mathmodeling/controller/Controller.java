@@ -23,8 +23,8 @@ public class Controller {
     }
 
     @GetMapping("/modeling/status")
-    public Boolean getModelingStatus() {
-        return StaticStorage.isModeling;
+    public String getModelingStatus() {
+        return StaticStorage.status;
     }
 
     @GetMapping("/modeling/output")

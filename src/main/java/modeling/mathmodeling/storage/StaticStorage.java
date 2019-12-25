@@ -15,5 +15,5 @@ public class StaticStorage {
     public static ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
 
     public static ConcurrentHashMap<Double, ArrayList<Double>> modelServiceOutput = new ConcurrentHashMap<>();
-    public static boolean isModeling = false;
+    public static String status = "Не запущен";
 }
