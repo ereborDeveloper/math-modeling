@@ -101,6 +101,14 @@ class MathServiceImplTest {
     }
 
     @Test
+    void moreIntegrate() {
+        String in = "+0.5*1.1635528346628865*u11*Cos(1.1635528346628865*xx)*Sin(0.5817764173314433*yy)+2.327105669325773*u21*Cos(2.327105669325773*xx)*Sin(0.5817764173314433*yy)+1.1635528346628865*u12*Cos(1.1635528346628865*xx)*Sin(1.7453292519943298*yy)+2.327105669325773*u22*Cos(2.327105669325773*xx)*Sin(1.7453292519943298*yy)";
+        assertEquals("", mathService.partialDoubleIntegral(parseService.getTermsFromString(in), "xx", 0.0, 5.4, "yy", 0.0, 5.4));
+
+    }
+
+
+    @Test
     void math() {
         RationalMatrix.Factory matrixFactory = RationalMatrix.FACTORY;
         double m[][] = {{12, 6, 3, 1}, {4, 1, 2, 3}, {2, 2, 4, 6}, {1, 3, 6, 9}};

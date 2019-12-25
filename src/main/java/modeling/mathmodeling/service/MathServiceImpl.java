@@ -169,8 +169,7 @@ public class MathServiceImpl implements MathService {
         }
 
         for (String term : terms.keySet()) {
-            if(!term.contains(variable))
-            {
+            if (!term.contains(variable)) {
                 continue;
             }
 //            System.out.println("Берем :" + term);
@@ -226,10 +225,13 @@ public class MathServiceImpl implements MathService {
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
         Config.EXPLICIT_TIMES_OPERATOR = true;
-/*        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
-        Config.DOUBLE_EPSILON = 1.0E-40D;*/
+        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
+        Config.DOUBLE_EPSILON = 1.0E-40D;
 
         for (String term : expandedTerms.keySet()) {
+            if (term.replace("\n", "").trim().length() == 0) {
+                continue;
+            }
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
             ArrayList<String> factorsToIntegrateX = new ArrayList<>();
             for (String factor : factors) {

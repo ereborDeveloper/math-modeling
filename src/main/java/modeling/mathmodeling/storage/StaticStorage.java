@@ -14,6 +14,6 @@ public class StaticStorage {
     public static ArrayList<String> derivativeResult = new ArrayList();
     public static ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
 
-    public static ConcurrentHashMap<Double, Double> modelServiceOutput = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Double, ArrayList<Double>> modelServiceOutput = new ConcurrentHashMap<>();
     public static boolean isModeling = false;
 }

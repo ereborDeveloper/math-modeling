@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
@@ -27,7 +28,7 @@ public class Controller {
     }
 
     @GetMapping("/modeling/output")
-    public ConcurrentHashMap<Double, Double> getModelingOutput() {
+    public ConcurrentHashMap<Double, ArrayList<Double>> getModelingOutput() {
         return StaticStorage.modelServiceOutput;
     }
 

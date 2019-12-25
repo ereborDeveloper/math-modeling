@@ -98,7 +98,7 @@ class ParseServiceImplTest {
     }
 
     @Test
-    void getTerms_whenNegativeDegree_thenDontTouch(){
+    void getTerms_whenNegativeDegree_thenDontTouch() {
         String in = "8.5270548796886186*10^-1";
         HashMap<String, String> expected = new HashMap<>();
         expected.put("8.5270548796886186*10^-1", "+");
@@ -146,7 +146,7 @@ class ParseServiceImplTest {
         assertEquals("10", parseService.eReplace(in, 0));
 
         in = "e7";
-        assertEquals("*10000000", parseService.eReplace(in,0));
+        assertEquals("*10000000", parseService.eReplace(in, 0));
 
         in = "e-7";
         assertEquals("*0.00000001", parseService.eReplace(in, 8));
@@ -155,17 +155,17 @@ class ParseServiceImplTest {
         assertEquals("0.12456*100", parseService.eReplace(in, 0));
 
         in = "0.12456e3*Sin(x)";
-        assertEquals("0.12456*1000*Sin(x)", parseService.eReplace(in,0));
+        assertEquals("0.12456*1000*Sin(x)", parseService.eReplace(in, 0));
 
         in = "1.0021511423251277E7*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0";
-        assertEquals("1.0021511423251277*10000000*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0", parseService.eReplace(in,0));
+        assertEquals("1.0021511423251277*10000000*w13*w23*w31*w32*Cos(0.5817764173314433*x)*Cos(1.1635528346628865*x)*Cos(1.7453292519943295*x)^2.0*Sin(0.5817764173314433*x)*Sin(1.1635528346628865*x)*Sin(1.7453292519943295*x)^2.0", parseService.eReplace(in, 0));
     }
 
 
     @Test
     void eReplaceAll() {
         String in = "1.18125*0.0*1.4224746001982408E-6*-7.494504917414604E-11";
-        assertEquals("1.18125*0.0*1.4224746001982408*0.0000001*-7.494504917414604*0.0", parseService.eReplaceAll(in,10));
+        assertEquals("1.18125*0.0*1.4224746001982408*0.0000001*-7.494504917414604*0.0", parseService.eReplaceAll(in, 10));
     }
 
     @Test
@@ -219,15 +219,25 @@ class ParseServiceImplTest {
     }
 
     @Test
-    void splitAndSkip_whenDegreeAfter_thenGetIt()
-    {
-        String in ="0.0012193263222069805*v11^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0";
-        ArrayList <String> expected = new ArrayList<>();
+    void splitAndSkip_whenDegreeAfter_thenGetIt() {
+        String in = "0.0012193263222069805*v11^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0";
+        ArrayList<String> expected = new ArrayList<>();
         expected.add("0.0012193263222069805");
         expected.add("v11^2.0");
         expected.add("Sin(0.5817764173314433*xx)^2.0");
         expected.add("Sin(0.5817764173314433*yy)^2.0");
         assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '*'));
+    }
+
+    @Test
+    void splitAndSkip_when_then() {
+        String in = "57*(2+34) - sin(x)";
+        ArrayList<String> expected = new ArrayList<>();
+        expected.add("0.0012193263222069805");
+        expected.add("v11^2.0");
+        expected.add("Sin(0.5817764173314433*xx)^2.0");
+        expected.add("Sin(0.5817764173314433*yy)^2.0");
+        assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '+'));
     }
 
     @Test
@@ -256,6 +266,8 @@ class ParseServiceImplTest {
         in = "-1237.5*dwx^2-1237";
         assertEquals("-1237.5*dwx*dwx-1237", parseService.expandDegreeByTerm(in, "dwx"));
 
+        in = "76.92307692307692*(0.5817764173314433*w11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)+1.7453292519943298*w12*Cos(1.7453292519943298*yy)*Sin(0.5817764173314433*xx)+0.5817764173314433*w21*Cos(0.5817764173314433*yy)*Sin(1.7453292519943298*xx)+1.7453292519943298*w22*Cos(1.7453292519943298*yy)*Sin(1.7453292519943298*xx))^2.0*w12*x3(1.0)*y3(2.0)";
+
     }
 
     @Test
@@ -267,6 +279,32 @@ class ParseServiceImplTest {
     @Test
     void expandDegreeAndReplaceTerm_multiple() {
         String in = "psix^2.0 + psix^3.0";
-        assertEquals("Abs+Cos(x)^2+2*Cos(x)*tg(x)+tg(x)^2", parseService.expandAllDegreesAndReplaceTerm(in, "psix", "cos(x) + a"));
+        assertEquals("a^2+2*a*Cos(x)+Cos(x)^2+a^3+3*a^2*Cos(x)+3*a*Cos(x)^2+Cos(x)^3", parseService.expandAllDegreesAndReplaceTerm(in, "psix", "cos(x) + a"));
+    }
+
+    @Test
+    void expandDegreeAndReplaceTerm_multiple_and_coef() {
+        String in = "2*psix^2.0 + psix^3.0";
+        assertEquals("2*a^2+4*a*Cos(x)+2*Cos(x)^2+a^3+3*a^2*Cos(x)+3*a*Cos(x)^2+Cos(x)^3", parseService.expandAllDegreesAndReplaceTerm(in, "psix", "cos(x) + a"));
+    }
+
+    @Test
+    void expandDegreeAndReplaceTerm_full() {
+        String in = "+7.009615384615383*dpsixdx^2+2.102884615384615*dpsixdx*dpsiydy+2.102884615384615*dbx*dpsixdx*psix11*x4(1)*y4(1)+2.102884615384615*dbx*dpsixdx*psix21*x4(2)*y4(1)+2.102884615384615*dbx*dpsixdx*psix12*x4(1)*y4(2)+2.102884615384615*dbx*dpsixdx*psix22*x4(2)*y4(2)+1.4019230769230766*10^1*day*dpsixdx*psiy11*x5(1)*y5(1)+2.102884615384615*day*dpsiydy*psiy11*x5(1)*y5(1)+1.4019230769230766*10^1*day*dpsixdx*psiy21*x5(2)*y5(1)+2.102884615384615*day*dpsiydy*psiy21*x5(2)*y5(1)+2.102884615384615*day*dbx*psix11*psiy11*x4(1)*x5(1)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix21*psiy11*x4(2)*x5(1)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix11*psiy21*x4(1)*x5(2)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix21*psiy21*x4(2)*x5(2)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix12*psiy11*x4(1)*x5(1)*y4(2)*y5(1)+2.102884615384615*day*dbx*psix22*psiy11*x4(2)*x5(1)*y4(2)*y5(1)+2.102884615384615*day*dbx*psix12*psiy21*x4(1)*x5(2)*y4(2)*y5(1)+2.102884615384615*day*dbx*psix22*psiy21*x4(2)*x5(2)*y4(2)*y5(1)+7.009615384615383*day^2*psiy11^2*x5(1)^2*y5(1)^2+1.4019230769230766*10^1*day^2*psiy11*psiy21*x5(1)*x5(2)*y5(1)^2+7.009615384615383*day^2*psiy21^2*x5(2)^2*y5(1)^2+1.4019230769230766*10^1*day*dpsixdx*psiy12*x5(1)*y5(2)+2.102884615384615*day*dpsiydy*psiy12*x5(1)*y5(2)+1.4019230769230766*10^1*day*dpsixdx*psiy22*x5(2)*y5(2)+2.102884615384615*day*dpsiydy*psiy22*x5(2)*y5(2)+2.102884615384615*day*dbx*psix11*psiy12*x4(1)*x5(1)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix21*psiy12*x4(2)*x5(1)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix11*psiy22*x4(1)*x5(2)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix21*psiy22*x4(2)*x5(2)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix12*psiy12*x4(1)*x5(1)*y4(2)*y5(2)+2.102884615384615*day*dbx*psix22*psiy12*x4(2)*x5(1)*y4(2)*y5(2)+2.102884615384615*day*dbx*psix12*psiy22*x4(1)*x5(2)*y4(2)*y5(2)+2.102884615384615*day*dbx*psix22*psiy22*x4(2)*x5(2)*y4(2)*y5(2)+1.4019230769230766*10^1*day^2*psiy11*psiy12*x5(1)^2*y5(1)*y5(2)+1.4019230769230766*10^1*day^2*psiy12*psiy21*x5(1)*x5(2)*y5(1)*y5(2)+1.4019230769230766*10^1*day^2*psiy11*psiy22*x5(1)*x5(2)*y5(1)*y5(2)+1.4019230769230766*10^1*day^2*psiy21*psiy22*x5(2)^2*y5(1)*y5(2)+7.009615384615383*day^2*psiy12^2*x5(1)^2*y5(2)^2+1.4019230769230766*10^1*day^2*psiy12*psiy22*x5(1)*x5(2)*y5(2)^2+7.009615384615383*day^2*psiy22^2*x5(2)^2*y5(2)^2";
+        String out = parseService.expandAllDegreesAndReplaceTerm(in, "dpsixdx", "-0.5817764173314433*psix11*Sin(0.5817764173314433*xx)*Sin(0.5817764173314433*yy)-1.7453292519943298*psix21*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)-0.5817764173314433*psix12*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*yy)-1.7453292519943298*psix22*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)");
+        out = parseService.expandAllDegreesAndReplaceTerm(out, "dpsixdy", "0.5817764173314433*psix11*Cos(0.5817764173314433*xx)*Cos(0.5817764173314433*yy)+0.5817764173314433*psix21*Cos(1.7453292519943298*xx)*Cos(0.5817764173314433*yy)+1.7453292519943298*psix12*Cos(0.5817764173314433*xx)*Cos(1.7453292519943298*yy)+1.7453292519943298*psix22*Cos(1.7453292519943298*xx)*Cos(1.7453292519943298*yy)");
+        out = parseService.expandAllDegreesAndReplaceTerm(out, "dbx", "0");
+        out = parseService.expandAllDegreesAndReplaceTerm(out, "dax", "0");
+        out = parseService.expandAllDegreesAndReplaceTerm(out, "dby", "0");
+        out = parseService.expandAllDegreesAndReplaceTerm(out, "day", "0");
+
+
+        assertEquals("2.3725010579541728*psix11^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+0.7117503173862517*psix11*psiy11*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+14.235006347725037*psix11*psix21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)^2.0+2.1352509521587555*psix21*psiy11*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)^2.0+0.7117503173862517*psix11*psiy21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)^2.0+21.352509521587553*psix21^2.0*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+2.1352509521587555*psix21*psiy21*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+4.7450021159083455*psix11*psix12*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+0.7117503173862517*psix12*psiy11*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix11*psiy12*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+14.235006347725037*psix12*psix21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+14.235006347725037*psix11*psix22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix22*psiy11*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+6.405752856476266*psix21*psiy12*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+0.7117503173862517*psix12*psiy21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix11*psiy22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+42.705019043175106*psix21*psix22*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix22*psiy21*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+6.405752856476266*psix21*psiy22*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.3725010579541728*psix12^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(1.7453292519943298*yy)^2.0+2.1352509521587555*psix12*psiy12*Sin(0.5817764173314433*xx)^2.0*Sin(1.7453292519943298*yy)^2.0+14.235006347725037*psix12*psix22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)^2.0+6.405752856476266*psix22*psiy12*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)^2.0+2.1352509521587555*psix12*psiy22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)^2.0+21.352509521587553*psix22^2.0*Sin(1.7453292519943298*xx)^2.0*Sin(1.7453292519943298*yy)^2.0+6.405752856476266*psix22*psiy22*Sin(1.7453292519943298*xx)^2.0*Sin(1.7453292519943298*yy)^2.0", out);
+    }
+
+    @Test
+    void degreeReplacer() {
+        String in = "cos(x)^13.0";
+        assertEquals("cos(x)^13", parseService.degreeReplacer(in));
     }
 }

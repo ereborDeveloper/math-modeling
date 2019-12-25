@@ -6,6 +6,8 @@ import java.util.HashMap;
 public interface ParseService {
     HashMap<String, String> getTermsFromString(String input);
 
+
+
     String expandDegree(String input);
 
     String expandAllDegrees(String input);
@@ -27,4 +29,8 @@ public interface ParseService {
     ArrayList<String> splitAndSkipInsideBrackets(String input, Character splitBy);
 
     String expandMinus(String term);
+
+    String degreeReplacer(String in);
+
+    String expandDegreeOptimizer(String in, String term, String replace);
 }
