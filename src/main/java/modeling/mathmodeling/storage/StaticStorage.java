@@ -17,4 +17,5 @@ public class StaticStorage {
 
     public static ConcurrentHashMap<Double, ArrayList<Double>> modelServiceOutput = new ConcurrentHashMap<>();
     public static String status = "Не запущен";
+    public static Boolean boolStatus = false;
 }
