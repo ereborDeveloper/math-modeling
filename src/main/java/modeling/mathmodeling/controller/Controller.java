@@ -1,6 +1,5 @@
 package modeling.mathmodeling.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import modeling.mathmodeling.dto.InputDTO;
 import modeling.mathmodeling.service.ModelingService;
 import modeling.mathmodeling.storage.StaticStorage;
@@ -11,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
@@ -29,6 +27,11 @@ public class Controller {
         return StaticStorage.status;
     }
 
+    @PostMapping("/modeling/status-reset")
+    public void resetStatus() {
+        StaticStorage.status = StaticStorage.DEFAULT_STATUS;
+    }
+
     @GetMapping("/modeling/bstatus")
     public Boolean getModelingBStatus() {
         return StaticStorage.boolStatus;
@@ -41,12 +44,9 @@ public class Controller {
     }
 
     @PostMapping(value = "/modeling/start")
-    public void modelingStart(@RequestBody String input) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> map = mapper.readValue(input, Map.class);
-        System.out.println(map);
-        // TODO: Smells SOOOOOOOOOOOOOOO Bad
-        modelingService.model(Integer.parseInt(map.get("n").toString()), Double.parseDouble(map.get("q").toString()), Double.parseDouble(map.get("qMax").toString()), Integer.parseInt(map.get("shellIndex").toString()), Double.parseDouble(map.get("d").toString()), Double.parseDouble(map.get("theta").toString()), Double.parseDouble(map.get("r").toString()), Double.parseDouble(map.get("R1").toString()), Double.parseDouble(map.get("R2").toString()));
+    public void modelingStart(@RequestBody InputDTO input) throws Exception {
+        System.out.println(input);
+        modelingService.model(input);
     }
 
     @ExceptionHandler(Exception.class)
