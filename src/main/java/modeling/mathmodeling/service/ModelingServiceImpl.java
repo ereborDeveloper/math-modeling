@@ -34,6 +34,7 @@ public class ModelingServiceImpl implements ModelingService {
     @Override
     public void model(InputDTO input) throws Exception {
         StaticStorage.boolStatus = true;
+        initializeStatus();
         long fullTime = System.nanoTime();
         long startTime = System.nanoTime();
 
@@ -51,7 +52,7 @@ public class ModelingServiceImpl implements ModelingService {
 
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
         LocalDateTime now = LocalDateTime.now();
-        StaticStorage.status = "Запуск";
+        StaticStorage.status.put("Запуск", now);
         System.out.println(dtf.format(now) + "|" + "Starting..");
         StaticStorage.modelServiceOutput.clear();
 
@@ -250,10 +251,10 @@ public class ModelingServiceImpl implements ModelingService {
         }
 
         // Раскрытие
-        StaticStorage.status = "Раскрытие скобок под интегралом";
         StaticStorage.currentTask.clear();
         StaticStorage.expandResult.clear();
         now = LocalDateTime.now();
+        StaticStorage.status.put("Раскрытие скобок под интегралом", now);
         System.out.println(dtf.format(now) + "|" + "Expanding brackets..");
         int currentThreadNum = 0;
         for (String term : expandedTerms.keySet()) {
@@ -288,16 +289,15 @@ public class ModelingServiceImpl implements ModelingService {
             // Ожидание окончания выполнения задач
         }
         // Подстановка аппроксимирующих функций в интерпретатор, чтобы символы типа x1(1) были заменены на необходимые тригонометрические функции
-        StaticStorage.status = "Подстановка аппроксимирующих функций";
-
         now = LocalDateTime.now();
+        StaticStorage.status.put("Подстановка аппроксимирующих функций", now);
         System.out.println(dtf.format(now) + "|" + "Setting approx..");
         for (String f : approximateR.keySet()) {
             util.eval(f + ":=" + approximateR.get(f));
         }
         // Поиск заранее посчитанных производных для дальнейшей подстановки
-        StaticStorage.status = "Взятие производных (оптимизация)";
         now = LocalDateTime.now();
+        StaticStorage.status.put("Взятие производных (оптимизация)", now);
         System.out.println(dtf.format(now) + "|" + "Getting D..");
         ConcurrentHashMap<String, String> computedD = new ConcurrentHashMap<>();
         computedD.put("dwx", util.eval("ExpandAll(D(" + W + ", xx))").toString());
@@ -316,8 +316,8 @@ public class ModelingServiceImpl implements ModelingService {
         computedD.put("dpsiydy", util.eval("ExpandAll(D(" + PsiY + ", yy))").toString());
 
         //TODO: В многопоточку
-        StaticStorage.status = "Раскрытие посчитанных производных и аппроксимирующих функций (оптимизация)";
         now = LocalDateTime.now();
+        StaticStorage.status.put("Раскрытие посчитанных производных и аппроксимирующих функций (оптимизация)", now);
         System.out.println(dtf.format(now) + "|" + "Replacing..");
         Es = "";
         terms = parseService.getTermsFromString(String.join("", StaticStorage.expandResult));
@@ -346,18 +346,18 @@ public class ModelingServiceImpl implements ModelingService {
             Es += sign + newValue;
         }
 
-        StaticStorage.status = "Подготовка к интегрированию (оптимизация)";
         now = LocalDateTime.now();
+        StaticStorage.status.put("Подготовка к интегрированию (оптимизация)", now);
         System.out.println(dtf.format(now) + "|" + "Getting terms..");
         terms = parseService.getTermsFromString(Es);
 
-        StaticStorage.status = "Взятие двойного интеграла";
         now = LocalDateTime.now();
+        StaticStorage.status.put("Взятие двойного интеграла", now);
         System.out.println(dtf.format(now) + "|" + "Integrate..");
         String afterIntegrate = mathService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
 
-        StaticStorage.status = "Подготовка к взятию производных (оптимизация)";
         now = LocalDateTime.now();
+        StaticStorage.status.put("Подготовка к взятию производных (оптимизация)", now);
         System.out.println(dtf.format(now) + "|" + "Preparing terms for D..");
         terms = parseService.getTermsFromString(afterIntegrate);
 
@@ -542,4 +542,6 @@ public class ModelingServiceImpl implements ModelingService {
         System.out.println(dtf.format(now) + "|" + "Рассчет окончен");
         StaticStorage.boolStatus = false;
     }
+
+
 }
