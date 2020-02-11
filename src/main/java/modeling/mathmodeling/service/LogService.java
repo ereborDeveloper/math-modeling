@@ -1,7 +1,21 @@
 package modeling.mathmodeling.service;
 
-public interface LogService {
-    void initializeStatus();
+import java.util.LinkedHashMap;
 
-    void replace
+public interface LogService {
+    void initialize();
+
+    void start();
+
+    void next();
+
+    void stop();
+
+    void stop(Exception error);
+
+    void setConsoleOutput(Boolean value);
+
+    LinkedHashMap<String, String> getLog();
+
+    Boolean getRunningStatus();
 }

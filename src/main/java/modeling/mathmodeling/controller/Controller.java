@@ -1,6 +1,7 @@
 package modeling.mathmodeling.controller;
 
 import modeling.mathmodeling.dto.InputDTO;
+import modeling.mathmodeling.service.LogService;
 import modeling.mathmodeling.service.ModelingService;
 import modeling.mathmodeling.storage.StaticStorage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,7 +10,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
@@ -17,33 +20,35 @@ public class Controller {
     @Autowired
     ModelingService modelingService;
 
+    @Autowired
+    LogService logService;
+
     @GetMapping("/hello")
     public String hello() {
         return "Hello!";
     }
 
-    @GetMapping("/modeling/status")
-    public String getModelingStatus() {
-        return StaticStorage.status;
+    @GetMapping("/log")
+    public LinkedHashMap<String, String> getLog() {
+        return logService.getLog();
     }
 
-    @PostMapping("/modeling/status-reset")
+    @PostMapping("/status-reset")
     public void resetStatus() {
-        StaticStorage.status = StaticStorage.DEFAULT_STATUS;
+        logService.stop();
     }
 
-    @GetMapping("/modeling/bstatus")
-    public Boolean getModelingBStatus() {
-        return StaticStorage.boolStatus;
+    @GetMapping("/running-status")
+    public Boolean getRunningStatus() {
+        return logService.getRunningStatus();
     }
 
-
-    @GetMapping("/modeling/output")
+    @GetMapping("/output")
     public ConcurrentHashMap<Double, ArrayList<Double>> getModelingOutput() {
         return StaticStorage.modelServiceOutput;
     }
 
-    @PostMapping(value = "/modeling/start")
+    @PostMapping("/start")
     public void modelingStart(@RequestBody InputDTO input) throws Exception {
         System.out.println(input);
         modelingService.model(input);
@@ -51,8 +56,8 @@ public class Controller {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleException(Exception exception) {
-        StaticStorage.boolStatus = false;
-        StaticStorage.status = "Ошибка";
+        exception.printStackTrace();
+        logService.stop(exception);
         HttpHeaders responseHeaders = new HttpHeaders();
         responseHeaders.add("Content-Type", "text/html; charset=utf-8");
         return new ResponseEntity<>("На сервере произошла ошибка.", responseHeaders, HttpStatus.BAD_REQUEST);

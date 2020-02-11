@@ -1,8 +1,6 @@
 package modeling.mathmodeling.storage;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -19,6 +17,6 @@ public class StaticStorage {
     public static ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
 
     public static ConcurrentHashMap<Double, ArrayList<Double>> modelServiceOutput = new ConcurrentHashMap<>();
-    public static HashMap<String, LocalDateTime> status = new HashMap<>();
-    public static Boolean boolStatus = false;
+
+
 }

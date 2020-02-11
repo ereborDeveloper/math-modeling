@@ -12,8 +12,6 @@ import org.matheclipse.core.interfaces.IExpr;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -31,12 +29,13 @@ public class ModelingServiceImpl implements ModelingService {
     @Autowired
     MathService mathService;
 
+    @Autowired
+    LogService logService;
+
     @Override
     public void model(InputDTO input) throws Exception {
-        StaticStorage.boolStatus = true;
-        initializeStatus();
-        long fullTime = System.nanoTime();
-        long startTime = System.nanoTime();
+        logService.start();
+        logService.setConsoleOutput(true);
 
         Integer n = input.getN();
         Integer shellIndex = input.getShellIndex();
@@ -50,10 +49,6 @@ public class ModelingServiceImpl implements ModelingService {
         Double mu12 = input.getMu12();
         Double mu21 = input.getMu21();
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
-        LocalDateTime now = LocalDateTime.now();
-        StaticStorage.status.put("Запуск", now);
-        System.out.println(dtf.format(now) + "|" + "Starting..");
         StaticStorage.modelServiceOutput.clear();
 
         Config.EXPLICIT_TIMES_OPERATOR = true;
@@ -150,7 +145,6 @@ public class ModelingServiceImpl implements ModelingService {
             coefficientsArray[coefIndex] = coef;
             coefIndex++;
         }
-        System.out.println(Arrays.toString(coefficientsArray));
         U = String.join("+", UTemp);
         V = String.join("+", VTemp);
         W = String.join("+", WTemp);
@@ -253,9 +247,7 @@ public class ModelingServiceImpl implements ModelingService {
         // Раскрытие
         StaticStorage.currentTask.clear();
         StaticStorage.expandResult.clear();
-        now = LocalDateTime.now();
-        StaticStorage.status.put("Раскрытие скобок под интегралом", now);
-        System.out.println(dtf.format(now) + "|" + "Expanding brackets..");
+        logService.next();
         int currentThreadNum = 0;
         for (String term : expandedTerms.keySet()) {
             // Вытащенное значение из интерпретатора
@@ -289,16 +281,12 @@ public class ModelingServiceImpl implements ModelingService {
             // Ожидание окончания выполнения задач
         }
         // Подстановка аппроксимирующих функций в интерпретатор, чтобы символы типа x1(1) были заменены на необходимые тригонометрические функции
-        now = LocalDateTime.now();
-        StaticStorage.status.put("Подстановка аппроксимирующих функций", now);
-        System.out.println(dtf.format(now) + "|" + "Setting approx..");
+        logService.next();
         for (String f : approximateR.keySet()) {
             util.eval(f + ":=" + approximateR.get(f));
         }
         // Поиск заранее посчитанных производных для дальнейшей подстановки
-        now = LocalDateTime.now();
-        StaticStorage.status.put("Взятие производных (оптимизация)", now);
-        System.out.println(dtf.format(now) + "|" + "Getting D..");
+        logService.next();
         ConcurrentHashMap<String, String> computedD = new ConcurrentHashMap<>();
         computedD.put("dwx", util.eval("ExpandAll(D(" + W + ", xx))").toString());
         computedD.put("dwy", util.eval("ExpandAll(D(" + W + ", yy))").toString());
@@ -316,9 +304,7 @@ public class ModelingServiceImpl implements ModelingService {
         computedD.put("dpsiydy", util.eval("ExpandAll(D(" + PsiY + ", yy))").toString());
 
         //TODO: В многопоточку
-        now = LocalDateTime.now();
-        StaticStorage.status.put("Раскрытие посчитанных производных и аппроксимирующих функций (оптимизация)", now);
-        System.out.println(dtf.format(now) + "|" + "Replacing..");
+        logService.next();
         Es = "";
         terms = parseService.getTermsFromString(String.join("", StaticStorage.expandResult));
 
@@ -346,29 +332,19 @@ public class ModelingServiceImpl implements ModelingService {
             Es += sign + newValue;
         }
 
-        now = LocalDateTime.now();
-        StaticStorage.status.put("Подготовка к интегрированию (оптимизация)", now);
-        System.out.println(dtf.format(now) + "|" + "Getting terms..");
+        logService.next();
         terms = parseService.getTermsFromString(Es);
 
-        now = LocalDateTime.now();
-        StaticStorage.status.put("Взятие двойного интеграла", now);
-        System.out.println(dtf.format(now) + "|" + "Integrate..");
+        logService.next();
         String afterIntegrate = mathService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
 
-        now = LocalDateTime.now();
-        StaticStorage.status.put("Подготовка к взятию производных (оптимизация)", now);
-        System.out.println(dtf.format(now) + "|" + "Preparing terms for D..");
+        logService.next();
         terms = parseService.getTermsFromString(afterIntegrate);
 
-        StaticStorage.status = "Рассчет градиента";
-        now = LocalDateTime.now();
-        System.out.println(dtf.format(now) + "|" + "Gradient");
+        logService.next();
         ConcurrentHashMap<String, String> gradient = mathService.multithreadingGradient(terms, coefficients);
 
-        StaticStorage.status = "Рассчет матрицы Гесса";
-        now = LocalDateTime.now();
-        System.out.println(dtf.format(now) + "|" + "Hessian");
+        logService.next();
         ConcurrentHashMap<String, String> hessian = new ConcurrentHashMap<>();
         for (String key : gradient.keySet()) {
             terms = parseService.getTermsFromString(gradient.get(key));
@@ -379,9 +355,7 @@ public class ModelingServiceImpl implements ModelingService {
         }
 
         // Newton's method
-        StaticStorage.status = "Выполнение метода Ньютона и отрисовки";
-        now = LocalDateTime.now();
-        System.out.println(dtf.format(now) + "|" + "Loop");
+        logService.next();
         // Searching vector
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
         double[] computedGradient = new double[N * 5];
@@ -395,9 +369,12 @@ public class ModelingServiceImpl implements ModelingService {
         int currentHessianI;
         int currentHessianJ;
         boolean firstStep;
+
+
+        //TODO: Оптимизация
+        long startTime = System.nanoTime();
+
         while (q < qMax) {
-            // TODO: расчет количества точек в минуту
-            long dotsPerMinute = System.nanoTime();
             System.out.println("q:" + q);
             Double max = 10.0;
             int zz = 0;
@@ -449,7 +426,6 @@ public class ModelingServiceImpl implements ModelingService {
                     currentGradientIndex++;
                 }
                 System.out.println("Подстановка градиента:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-                StaticStorage.status = "Выполнение метода Ньютона и отрисовки.";
                 currentHessianI = 0;
                 startTime = System.nanoTime();
                 for (String vi : coefficients) {
@@ -467,7 +443,6 @@ public class ModelingServiceImpl implements ModelingService {
                     currentHessianI++;
                 }
                 System.out.println("Подстановка Гессе:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-                StaticStorage.status = "Выполнение метода Ньютона и отрисовки..";
 
                 startTime = System.nanoTime();
                 SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
@@ -485,7 +460,6 @@ public class ModelingServiceImpl implements ModelingService {
                 startTime = System.nanoTime();
                 double[] multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
                 System.out.println("Перемножение матриц:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-                StaticStorage.status = "Выполнение метода Ньютона и отрисовки...";
 
                 int t = 0;
                 startTime = System.nanoTime();
@@ -537,10 +511,7 @@ public class ModelingServiceImpl implements ModelingService {
             System.out.println("Подстановка W:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
             q += qStep;
         }
-        StaticStorage.status = "Расчет окончен. Общее время: " + TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - fullTime) + "s";
-        now = LocalDateTime.now();
-        System.out.println(dtf.format(now) + "|" + "Рассчет окончен");
-        StaticStorage.boolStatus = false;
+        logService.stop();
     }
 
 
