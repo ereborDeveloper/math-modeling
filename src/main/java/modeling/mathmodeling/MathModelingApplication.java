@@ -1,6 +1,7 @@
 package modeling.mathmodeling;
 
 import modeling.mathmodeling.service.LogService;
+import modeling.mathmodeling.storage.Settings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -10,6 +11,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+
 
 @SpringBootApplication
 public class MathModelingApplication {
@@ -40,6 +42,7 @@ public class MathModelingApplication {
     }
 	@EventListener(ApplicationReadyEvent.class)
 	public void doAfterStartup() {
-    	logService.initialize();
+        Settings.setAvailableCores(Runtime.getRuntime().availableProcessors() / 2);
+        logService.initialize();
 	}
 }

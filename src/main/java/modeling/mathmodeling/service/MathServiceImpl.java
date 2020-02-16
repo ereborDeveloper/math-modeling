@@ -13,7 +13,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static modeling.mathmodeling.storage.StaticStorage.availableCores;
+import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
 @Service
 public class MathServiceImpl implements MathService {
@@ -28,10 +28,10 @@ public class MathServiceImpl implements MathService {
     @Override
     public String multithreadingIntegrate(HashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
         StaticStorage.integrateResult.clear();
-        int blockSize = expandedTerms.size() / availableCores;
-        for (int i = 0; i < availableCores; i++) {
+        int blockSize = expandedTerms.size() / getAvailableCores();
+        for (int i = 0; i < getAvailableCores(); i++) {
             List<String> partialKeys;
-            if (i == availableCores - 1) {
+            if (i == getAvailableCores() - 1) {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
             } else {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
@@ -133,10 +133,10 @@ public class MathServiceImpl implements MathService {
     public String multithreadingDerivative(HashMap<String, String> expandedTerms, String variable) {
         StaticStorage.derivativeResult.clear();
         StaticStorage.alreadyComputedDerivatives.clear();
-        int blockSize = expandedTerms.size() / availableCores;
-        for (int i = 0; i < availableCores; i++) {
+        int blockSize = expandedTerms.size() / getAvailableCores();
+        for (int i = 0; i < getAvailableCores(); i++) {
             List<String> partialKeys;
-            if (i == availableCores - 1) {
+            if (i == getAvailableCores() - 1) {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
             } else {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
@@ -304,10 +304,10 @@ public class MathServiceImpl implements MathService {
     @Override
     public String multithreadingDoubleNumericIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
         StaticStorage.integrateResult.clear();
-        int blockSize = expandedTerms.size() / availableCores;
-        for (int i = 0; i < availableCores; i++) {
+        int blockSize = expandedTerms.size() / getAvailableCores();
+        for (int i = 0; i < getAvailableCores(); i++) {
             List<String> partialKeys;
-            if (i == availableCores - 1) {
+            if (i == getAvailableCores() - 1) {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
             } else {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
@@ -334,10 +334,10 @@ public class MathServiceImpl implements MathService {
     @Override
     public String multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
         StaticStorage.integrateResult.clear();
-        int blockSize = expandedTerms.size() / availableCores;
-        for (int i = 0; i < availableCores; i++) {
+        int blockSize = expandedTerms.size() / getAvailableCores();
+        for (int i = 0; i < getAvailableCores(); i++) {
             List<String> partialKeys;
-            if (i == availableCores - 1) {
+            if (i == getAvailableCores() - 1) {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, expandedTerms.size());
             } else {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));

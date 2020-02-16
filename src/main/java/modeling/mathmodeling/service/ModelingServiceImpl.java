@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 
-import static modeling.mathmodeling.storage.StaticStorage.availableCores;
+import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
 @Service
 public class ModelingServiceImpl implements ModelingService {
@@ -55,7 +55,6 @@ public class ModelingServiceImpl implements ModelingService {
         Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
         Config.DOUBLE_EPSILON = 1.0E-40D;
         // TODO: Добавить выгрузку интегралов в файл и обнулять его только при действии пользователя
-        StaticStorage.availableCores = Runtime.getRuntime().availableProcessors();
 
         int N = (int) Math.pow(n, 2);
         // TODO: Что это?
@@ -273,7 +272,7 @@ public class ModelingServiceImpl implements ModelingService {
             });
             StaticStorage.currentTask.put(currentThreadNum, thread);
             thread.start();
-            while (StaticStorage.currentTask.size() > availableCores) {
+            while (StaticStorage.currentTask.size() > getAvailableCores()) {
                 // Ожидание окончания выполнения задач
             }
         }
@@ -394,10 +393,10 @@ public class ModelingServiceImpl implements ModelingService {
                     ArrayList<String> arr = new ArrayList<>(Arrays.asList(value.split("\\+")));
                     arr.remove("");
                     ConcurrentLinkedDeque<Double> out = new ConcurrentLinkedDeque<>();
-                    int blockSize = arr.size() / availableCores;
-                    for (int i = 0; i < availableCores; i++) {
+                    int blockSize = arr.size() / getAvailableCores();
+                    for (int i = 0; i < getAvailableCores(); i++) {
                         List<String> partialKeys;
-                        if (i == availableCores - 1) {
+                        if (i == getAvailableCores() - 1) {
                             partialKeys = arr.subList(blockSize * i, arr.size());
                         } else {
                             partialKeys = arr.subList(blockSize * i, blockSize * (i + 1));

@@ -12,7 +12,6 @@ public class StaticStorage {
 
     public static ConcurrentLinkedQueue<String> expandResult = new ConcurrentLinkedQueue();
     public static ConcurrentLinkedQueue<String> integrateResult = new ConcurrentLinkedQueue();
-    public static int availableCores;
     public static ConcurrentLinkedQueue<String> derivativeResult = new ConcurrentLinkedQueue();
     public static ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
 
