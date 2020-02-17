@@ -43,6 +43,8 @@ public class MathModelingApplication {
 	@EventListener(ApplicationReadyEvent.class)
 	public void doAfterStartup() {
         Settings.setAvailableCores(Runtime.getRuntime().availableProcessors() / 2);
+        Settings.setIsDerivativeCached(true);
+        Settings.setIsIntegrateCached(true);
         logService.initialize();
 	}
 }

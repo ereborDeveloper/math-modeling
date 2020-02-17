@@ -9,8 +9,7 @@ public class Settings {
     private static boolean isDerivativeCached;
     private static boolean isIntegrateCached;
 
-    public static void setIsDerivativeCached(boolean isDerivativeCached)
-    {
+    public static void setIsDerivativeCached(boolean isDerivativeCached) {
         Settings.isDerivativeCached = isDerivativeCached;
     }
 
@@ -34,10 +33,21 @@ public class Settings {
         return availableCores;
     }
 
-    public static void setSettings(SettingsDTO dto)
-    {
-        availableCores = dto.getAvailableCores();
+    public static void setSettings(SettingsDTO dto) {
+        if (dto.getAvailableCores() > Runtime.getRuntime().availableProcessors() / 2) {
+            availableCores = Runtime.getRuntime().availableProcessors() / 2;
+        } else {
+            availableCores = dto.getAvailableCores();
+        }
         isDerivativeCached = dto.isDerivativeCached();
+        if(!isDerivativeCached)
+        {
+            StaticStorage.alreadyComputedDerivatives.clear();
+        }
         isIntegrateCached = dto.isIntegrateCached();
+        if(!isIntegrateCached)
+        {
+            StaticStorage.alreadyComputedIntegrals.clear();
+        }
     }
 }

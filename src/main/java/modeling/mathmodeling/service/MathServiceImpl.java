@@ -1,6 +1,7 @@
 package modeling.mathmodeling.service;
 
 import groovy.lang.GroovyShell;
+import modeling.mathmodeling.storage.Settings;
 import modeling.mathmodeling.storage.StaticStorage;
 import org.apache.commons.lang3.StringUtils;
 import org.matheclipse.core.basic.Config;
@@ -85,7 +86,9 @@ public class MathServiceImpl implements MathService {
                     if (type == "NIntegrate") {
                         writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variable + ", " + from + ", " + to + "})").toString();
                     }
-                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    if (Settings.getIsIntegrateCached()) {
+                        StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    }
                     result.add(writeableResult);
                 } else {
                     result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
@@ -174,7 +177,6 @@ public class MathServiceImpl implements MathService {
             if (!term.contains(variable)) {
                 continue;
             }
-//            System.out.println("Берем :" + term);
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
             ArrayList<String> factorsToDerivative = new ArrayList<>();
             for (String factor : factors) {
@@ -189,14 +191,14 @@ public class MathServiceImpl implements MathService {
             if (!factorsToDerivative.isEmpty()) {
                 String toDerivate = String.join("*", factorsToDerivative);
                 if (!StaticStorage.alreadyComputedDerivatives.containsKey(toDerivate)) {
-//                    System.out.println("Берем по " + variable + " | Key: " + toDerivate);
                     String writeableResult = "";
                     writeableResult += util.eval("D(" + toDerivate + ", " + variable + ")").toString();
                     writeableResult = writeableResult.replace("\n", "");
-                    StaticStorage.alreadyComputedDerivatives.put(toDerivate, writeableResult);
+                    if (Settings.getIsDerivativeCached()) {
+                        StaticStorage.alreadyComputedDerivatives.put(toDerivate, writeableResult);
+                    }
                     result.add(writeableResult);
-                    if(writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*"))
-                    {
+                    if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                         continue;
                     }
                 } else {
@@ -213,11 +215,9 @@ public class MathServiceImpl implements MathService {
             } else {
                 parsedResult = String.join("*", result);
             }
-//            System.out.println(parsedResult);
             if (parsedResult != "") {
                 output += sign + parsedResult;
             }
-//            }
             i++;
         }
         if (output.trim() == "") {
@@ -261,10 +261,11 @@ public class MathServiceImpl implements MathService {
                 if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
                     String writeableResult = "";
                     writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
-                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    if (Settings.getIsIntegrateCached()) {
+                        StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    }
                     result.add(writeableResult);
-                    if(writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*"))
-                    {
+                    if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                         continue;
                     }
                 } else {
@@ -278,7 +279,9 @@ public class MathServiceImpl implements MathService {
                 if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
                     String writeableResult = "";
                     writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableY + ", " + fromY + ", " + toY + "})").toString();
-                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    if (Settings.getIsIntegrateCached()) {
+                        StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    }
                     result.add(writeableResult);
                 } else {
                     result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));

@@ -1,5 +1,6 @@
 package modeling.mathmodeling.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import modeling.mathmodeling.dto.InputDTO;
 import modeling.mathmodeling.dto.SettingsDTO;
 import modeling.mathmodeling.service.LogService;
@@ -57,12 +58,13 @@ public class Controller {
 
     @GetMapping("/settings")
     public SettingsDTO getSettings(){
-        return new SettingsDTO();
+        SettingsDTO dto = SettingsDTO.makeDTO();
+        System.out.println(dto);
+        return dto;
     }
 
     @PostMapping("/settings")
-    public void saveSettings(@RequestBody SettingsDTO dto){
-        System.out.println(dto);
+    public void saveSettings(@RequestBody SettingsDTO dto) {
         Settings.setSettings(dto);
     }
 
