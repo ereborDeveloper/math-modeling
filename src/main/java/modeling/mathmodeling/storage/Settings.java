@@ -5,9 +5,9 @@ import modeling.mathmodeling.dto.SettingsDTO;
 
 @Data
 public class Settings {
-    private static int availableCores;
-    private static boolean isDerivativeCached;
-    private static boolean isIntegrateCached;
+    private static int availableCores = 6;
+    private static boolean isDerivativeCached = true;
+    private static boolean isIntegrateCached = true;
 
     public static void setIsDerivativeCached(boolean isDerivativeCached)
     {

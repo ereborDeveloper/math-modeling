@@ -34,6 +34,8 @@ public class ModelingServiceImpl implements ModelingService {
 
     @Override
     public void model(InputDTO input) throws Exception {
+        System.out.println(input);
+        System.out.println(getAvailableCores() + " ядер");
         logService.start();
         logService.setConsoleOutput(true);
 
@@ -355,10 +357,16 @@ public class ModelingServiceImpl implements ModelingService {
 
         // Newton's method
         logService.next();
+        newtonMethod(a, b, coefficientsArray, qMax, qStep, gradient, hessian);
+        logService.stop();
+    }
+
+    @Override
+    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, ConcurrentHashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) {
         // Searching vector
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
-        double[] computedGradient = new double[N * 5];
-        double[][] computedHessian = new double[N * 5][N * 5];
+        double[] computedGradient = new double[coefficients.length];
+        double[][] computedHessian = new double[coefficients.length][coefficients.length];
         for (String coef : coefficients) {
             grail.put(coef, 0.0);
         }
@@ -368,10 +376,11 @@ public class ModelingServiceImpl implements ModelingService {
         int currentHessianI;
         int currentHessianJ;
         boolean firstStep;
-
-
         //TODO: Оптимизация
         long startTime = System.nanoTime();
+        long qTime = System.nanoTime();
+
+        System.out.println("Работающий потоков еще: " + StaticStorage.currentTask.size());
 
         while (q < qMax) {
             System.out.println("q:" + q);
@@ -379,17 +388,33 @@ public class ModelingServiceImpl implements ModelingService {
             int zz = 0;
             firstStep = true;
             while (zz < 1) {
+                startTime = System.nanoTime();
+                qTime = System.nanoTime();
                 zz++;
                 currentGradientIndex = 0;
 
-                for (String key : coefficients) {
-                    String value = gradient.get(key);
-                    value = StringUtils.replace(value, "q", Double.toString(q));
+                for (int j = 0; j < coefficients.length; j++) {
 
-                    for (int i = 0; i < coefficientsArray.length; i++) {
-                        String valueOfCoef = String.valueOf(grail.get(coefficientsArray[i]));
-                        value = StringUtils.replace(value, coefficientsArray[i], valueOfCoef);
+//                    startTime = System.nanoTime();
+                    String value = gradient.get(coefficients[j]);
+//                    System.out.println("Выборка из ConcurrentHashMap:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+
+//                    startTime = System.nanoTime();
+                    value = StringUtils.replace(value, "q", Double.toString(q));
+//                    System.out.println("Замена q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+
+//                    startTime = System.nanoTime();
+                    for (int i = 0; i < coefficients.length; i++) {
+//                        startTime = System.nanoTime();
+                        String valueOfCoef = String.valueOf(grail.get(coefficients[i]));
+//                        System.out.println("Получение:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                        startTime = System.nanoTime();
+                        value = StringUtils.replace(value, coefficients[i], valueOfCoef);
+//                        System.out.println("String Utils:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                     }
+//                    System.out.println("Замена коэффов:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+
+//                    startTime = System.nanoTime();
                     ArrayList<String> arr = new ArrayList<>(Arrays.asList(value.split("\\+")));
                     arr.remove("");
                     ConcurrentLinkedDeque<Double> out = new ConcurrentLinkedDeque<>();
@@ -416,6 +441,9 @@ public class ModelingServiceImpl implements ModelingService {
                     while (StaticStorage.currentTask.size() > 0) {
                         // Waiting for task executing
                     }
+//                    System.out.println("Упрощение:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+
+//                    startTime = System.nanoTime();
                     computedGradient[currentGradientIndex] = 0.0;
                     for (Double term : out) {
                         if (term != null) {
@@ -423,6 +451,7 @@ public class ModelingServiceImpl implements ModelingService {
                         }
                     }
                     currentGradientIndex++;
+//                    System.out.println("Вставка:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 }
                 System.out.println("Подстановка градиента:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 currentHessianI = 0;
@@ -443,25 +472,25 @@ public class ModelingServiceImpl implements ModelingService {
                 }
                 System.out.println("Подстановка Гессе:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
-                startTime = System.nanoTime();
+//                startTime = System.nanoTime();
                 SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
-                System.out.println("Формирование первой SimpleMatrix:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Формирование первой SimpleMatrix:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
                 // xi+1 = xi - H(xi)^-1 * G(xi);
-                startTime = System.nanoTime();
+//                startTime = System.nanoTime();
                 firstMatrix = firstMatrix.invert();
-                System.out.println("Инфверсия этой матрицы:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Инфверсия этой матрицы:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
-                startTime = System.nanoTime();
+//                startTime = System.nanoTime();
                 SimpleMatrix secondMatrix = new SimpleMatrix(new double[][]{computedGradient});
-                System.out.println("Формирование второй SimpleMatrix:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Формирование второй SimpleMatrix:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
-                startTime = System.nanoTime();
+//                startTime = System.nanoTime();
                 double[] multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
-                System.out.println("Перемножение матриц:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Перемножение матриц:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
                 int t = 0;
-                startTime = System.nanoTime();
+//                startTime = System.nanoTime();
                 for (String key : grail.keySet()) {
                     Double temp = Math.abs(grail.get(key) - multiply[t]);
                     if (temp < max) {
@@ -469,18 +498,19 @@ public class ModelingServiceImpl implements ModelingService {
                     }
                     t++;
                 }
-                System.out.println("Определение точности:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Определение точности:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 if (max < eps && !firstStep) {
                     break;
                 }
                 t = 0;
-                startTime = System.nanoTime();
+//                startTime = System.nanoTime();
                 for (String key : grail.keySet()) {
                     grail.replace(key, grail.get(key) - multiply[t]);
                     t++;
                 }
-                System.out.println("Подстановка новых коэффов" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Подстановка новых коэффов" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 firstStep = false;
+                System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
             }
             long start = System.nanoTime();
             String Woutput = util.eval("W").toString();
@@ -507,10 +537,9 @@ public class ModelingServiceImpl implements ModelingService {
             wOut.add(Double.parseDouble(Woutput0));
             wOut.add(Double.parseDouble(Woutput1));
             StaticStorage.modelServiceOutput.put(q, wOut);
-            System.out.println("Подстановка W:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+//            System.out.println("Подстановка W:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
             q += qStep;
         }
-        logService.stop();
     }
 
 
