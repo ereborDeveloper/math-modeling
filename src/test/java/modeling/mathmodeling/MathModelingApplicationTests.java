@@ -1,11 +1,9 @@
 package modeling.mathmodeling;
 
-import jdk.nashorn.internal.ir.annotations.Ignore;
 import modeling.mathmodeling.dto.InputDTO;
 import modeling.mathmodeling.service.MathService;
 import modeling.mathmodeling.service.ModelingService;
 import modeling.mathmodeling.service.ParseService;
-import modeling.mathmodeling.storage.StaticStorage;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,9 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.util.*;
 
 
 @ExtendWith(SpringExtension.class)
@@ -39,9 +34,8 @@ class MathModelingApplicationTests {
     void contextLoads() {
     }
 
-    @Ignore
-    void modeling() throws Exception {
-        BufferedWriter writer = new BufferedWriter(new FileWriter("1.txt"));
+    @Test
+    void modeling() {
         InputDTO dto = new InputDTO();
         dto.setShellIndex(1);
         dto.setD(0);
@@ -53,7 +47,7 @@ class MathModelingApplicationTests {
         dto.setA1(5.4);
         dto.setB0(0);
         dto.setB1(5.4);
-        dto.setN(2);
+        dto.setN(1);
         dto.setE1(210000);
         dto.setE2(210000);
         dto.setMu12(0.3);
@@ -62,17 +56,10 @@ class MathModelingApplicationTests {
         dto.setZ(-0.045);
         dto.setK(0.8333333);
         dto.setG(80769.23076923077);
-        dto.setQMax(3.5);
+        dto.setQMax(3.0);
         dto.setQStep(0.01);
 
         modelingService.model(dto);
-
-        ArrayList<Double> sortedOutputKeyList = new ArrayList<>(StaticStorage.modelServiceOutput.keySet());
-        Collections.sort(sortedOutputKeyList);
-        for (Double key : sortedOutputKeyList) {
-            writer.write(key + ":" + StaticStorage.modelServiceOutput.get(key) + "\n");
-        }
-        writer.close();
     }
 
     @Test

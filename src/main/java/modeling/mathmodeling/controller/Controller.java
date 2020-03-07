@@ -24,14 +24,8 @@ public class Controller {
     @Autowired
     LogService logService;
 
-    @GetMapping("/hello")
-    public String hello() {
-        return "Hello!";
-    }
-
     @GetMapping("/log")
     public LinkedHashMap<String, String> getLog() {
-
         System.out.println("Get log");
         return logService.getLog();
     }
@@ -55,7 +49,7 @@ public class Controller {
     }
 
     @PostMapping("/start")
-    public void modelingStart(@RequestBody InputDTO input) throws Exception {
+    public void modelingStart(@RequestBody InputDTO input){
         System.out.println(input);
         modelingService.model(input);
     }

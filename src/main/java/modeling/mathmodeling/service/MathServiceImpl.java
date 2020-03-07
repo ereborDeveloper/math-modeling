@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
@@ -24,10 +24,8 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String partialIntegrate(int threadNum, HashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
-        int i = 0;
+    public String partialIntegrate(ExprEvaluator util, ConcurrentHashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
         String output = "";
-        ExprEvaluator util = new ExprEvaluator(true, 50000);
         Config.EXPLICIT_TIMES_OPERATOR = true;
         Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
         Config.DOUBLE_EPSILON = 1.0E-40D;
@@ -72,35 +70,34 @@ public class MathServiceImpl implements MathService {
             if (parsedResult != "") {
                 output += sign + parsedResult;
             }
-            i++;
         }
         output = StringUtils.replace(output, "+-", "-");
         return StringUtils.replace(output, "--", "+");
     }
 
     @Override
-    public ConcurrentHashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, LinkedList<String> variables) {
-        HashMap<String, String> gradient = new HashMap<>();
+    public ConcurrentHashMap<String, String> multithreadingGradient(ExprEvaluator util, ConcurrentHashMap<String, String> expandedTerms, LinkedList<String> variables) {
         StaticStorage.derivativeResult.clear();
         StaticStorage.alreadyComputedDerivatives.clear();
+        ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
-            Thread thread = new Thread(() -> {
-                StaticStorage.gradient.put(variable, partialDerivative(expandedTerms, variable));
-                StaticStorage.currentTask.remove(variables.indexOf(variable));
-            });
-            StaticStorage.currentTask.put(variables.indexOf(variable), thread);
-            thread.start();
+            Runnable task = () -> {
+                StaticStorage.gradient.put(variable, partialDerivative(util, expandedTerms, variable));
+            };
+            executorService.execute(task);
         }
-        while (StaticStorage.currentTask.size() > 0) {
-            // Waiting for task executing
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(60, TimeUnit.SECONDS);
+        } catch (Exception e) {
+
         }
         return new ConcurrentHashMap<>(StaticStorage.gradient);
     }
 
     @Override
-    public String partialDerivative(HashMap<String, String> terms, String variable) {
+    public String partialDerivative(ExprEvaluator util, ConcurrentHashMap<String, String> terms, String variable) {
         String output = "";
-        ExprEvaluator util = new ExprEvaluator(true, 50000);
         Config.EXPLICIT_TIMES_OPERATOR = true;
         if (terms.isEmpty()) {
             return "+0.0";
@@ -129,8 +126,7 @@ public class MathServiceImpl implements MathService {
                     writeableResult = writeableResult.replace("\n", "");
                     StaticStorage.alreadyComputedDerivatives.put(toDerivate, writeableResult);
                     result.add(writeableResult);
-                    if(writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*"))
-                    {
+                    if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                         continue;
                     }
                 } else {
@@ -194,8 +190,7 @@ public class MathServiceImpl implements MathService {
                     writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
                     StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
                     result.add(writeableResult);
-                    if(writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*"))
-                    {
+                    if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                         continue;
                     }
                 } else {
@@ -233,10 +228,13 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+    public String multithreadingDoubleIntegrate(ConcurrentHashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
         StaticStorage.integrateResult.clear();
         int termsCount = expandedTerms.size();
         int blockSize = termsCount / getAvailableCores();
+
+        ExecutorService executorService = Executors.newWorkStealingPool();
+
         for (int i = 0; i < getAvailableCores(); i++) {
             List<String> partialKeys;
             if (i == getAvailableCores() - 1) {
@@ -249,16 +247,16 @@ public class MathServiceImpl implements MathService {
                 partialTerms.put(key, expandedTerms.get(key));
             }
             // adding terms to runnable
-            int currentThreadNum = i;
-            Thread thread = new Thread(() -> {
+            Runnable task = () -> {
                 StaticStorage.integrateResult.add(this.partialDoubleIntegrate(partialTerms, variableX, fromX, toX, variableY, fromY, toY));
-                StaticStorage.currentTask.remove(currentThreadNum);
-            });
-            StaticStorage.currentTask.put(currentThreadNum, thread);
-            thread.start();
+            };
+            executorService.execute(task);
         }
-        while (StaticStorage.currentTask.size() > 0) {
-            // Waiting for task executing
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(60, TimeUnit.SECONDS);
+        } catch (Exception e) {
+
         }
         return String.join("", StaticStorage.integrateResult);
     }

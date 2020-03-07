@@ -1,16 +1,21 @@
 package modeling.mathmodeling.service;
 
+import org.apache.commons.lang3.StringUtils;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class ParseServiceImpl implements ParseService {
+
+//    private ExprEvaluator util = new ExprEvaluator(true, 500000);
+
     @Override
-    public HashMap<String, String> getTermsFromString(String input) {
-        HashMap<String, String> terms = new HashMap<>();
+    public ConcurrentHashMap<String, String> getTermsFromString(String input) {
+        ConcurrentHashMap<String, String> terms = new ConcurrentHashMap<>();
         String output;
         input = input.replaceAll(" ", "");
         int beginIndex = 0;
@@ -67,7 +72,7 @@ public class ParseServiceImpl implements ParseService {
     public double getNumericResult(String input) {
         double numericOutput = 0.0;
         String output;
-        HashMap<String, String> terms = getTermsFromString(input);
+        ConcurrentHashMap<String, String> terms = getTermsFromString(input);
         for (String term : terms.keySet()) {
             int lastPosition = 0;
             Character currentSign;
@@ -481,14 +486,24 @@ public class ParseServiceImpl implements ParseService {
 
     @Override
     public String expandDegreeOptimizer(String in, String term, String replace) {
-        ExprEvaluator util = new ExprEvaluator(true, 50000);
-        String toReplace = util.eval(term).toString();
+//        String toReplace = util.eval(term).toString();
 
         in = in.replace(" ", "");
         for (int i = 2; i < 30; i++) {
-            in = in.replaceAll(term + "\\^" + i, util.eval("ExpandAll((" + toReplace + ")\\^" + i + ")").toString());
+//            in = in.replaceAll(term + "\\^" + i, util.eval("ExpandAll((" + toReplace + ")\\^" + i + ")").toString());
         }
-//        in = in.replaceAll(term, util.eval("ExpandAll((" + toReplace)
         return in;
+    }
+
+    @Override
+    public String expandBrackets(String input) {
+//        String res = util.eval("ExpandAll(" + input + ")").toString();
+//        System.out.println("Parse: " + res);
+//        String string = StringUtils.replace(res, "\n", "");
+
+//        if (!isSign(string.charAt(0))) {
+//            string = "+" + string;
+//        }
+        return "";
     }
 }

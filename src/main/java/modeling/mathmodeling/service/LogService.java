@@ -7,6 +7,8 @@ public interface LogService {
 
     void start();
 
+    void debug(String debugString);
+
     void next();
 
     void stop();

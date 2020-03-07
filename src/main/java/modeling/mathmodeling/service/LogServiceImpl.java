@@ -58,6 +58,14 @@ public class LogServiceImpl implements LogService {
     }
 
     @Override
+    public void debug(String debugString) {
+        LocalDateTime now = LocalDateTime.now();
+        if (isConsoleOutputEnabled) {
+            System.out.println(dtf.format(now) + " | " + debugString);
+        }
+    }
+
+    @Override
     public void next() {
         if (calculatingStep > 0) {
             status.replace(calculatingStatusName, TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - currentTaskTime) + " с.");

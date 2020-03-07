@@ -1,6 +1,5 @@
 package modeling.mathmodeling.service;
 
-import com.udojava.evalex.Expression;
 import modeling.mathmodeling.dto.InputDTO;
 import modeling.mathmodeling.storage.StaticStorage;
 
@@ -8,20 +7,16 @@ import org.apache.commons.lang3.StringUtils;
 import org.ejml.simple.SimpleMatrix;
 import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
-import org.matheclipse.core.interfaces.IExpr;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
 @Service
 public class ModelingServiceImpl implements ModelingService {
-    private ExprEvaluator util = new ExprEvaluator(true, 50000);
 
     @Autowired
     ParseService parseService;
@@ -32,131 +27,104 @@ public class ModelingServiceImpl implements ModelingService {
     @Autowired
     LogService logService;
 
+    private ExprEvaluator util = new ExprEvaluator(true, 500000);
+
+    private int shellIndex;
+    private double r1;
+    private double r2;
+    private double theta;
+    private double d;
+    private int n;
+    private int N;
+    private String[] coefficientsArray;
+    private LinkedList<String> coefficients;
+
+    private ExecutorService executorService;
+
+    private String expandTermsConcurrently(Map<String, String> terms) {
+        executorService = Executors.newWorkStealingPool();
+        ConcurrentLinkedQueue<String> expandResult = new ConcurrentLinkedQueue<>();
+        for (String term : terms.keySet()) {
+            Runnable task = () -> {
+                System.out.println(terms.get(term));
+                String inputString = "ExpandAll(" + terms.get(term) + term + ")";
+                String res = util.eval(inputString).toString();
+                res = StringUtils.replace(res, "\n", "");
+                if (!parseService.isSign(res.charAt(0))) {
+                    res = "+" + res;
+                }
+                expandResult.add(res);
+            };
+            executorService.execute(task);
+        }
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return String.join("", expandResult);
+    }
+
+    private ConcurrentHashMap<String, String> derivativeTermsConcurrently(Map<String, String> terms) {
+        executorService = Executors.newWorkStealingPool();
+        ConcurrentHashMap<String, String> derivativeResult = new ConcurrentHashMap<>();
+        for (String key : terms.keySet()) {
+            Runnable task = () -> {
+                String derivative = util.eval("ExpandAll(D(" + terms.get(key) + "))").toString();
+                derivativeResult.put(key, derivative);
+            };
+            executorService.execute(task);
+        }
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return derivativeResult;
+    }
+
     @Override
-    public void model(InputDTO input) throws Exception {
-        System.out.println(input);
-        System.out.println(getAvailableCores() + " ядер");
+    public void model(InputDTO input) {
         logService.start();
-        logService.setConsoleOutput(true);
-
-        Integer n = input.getN();
-        Integer shellIndex = input.getShellIndex();
-        Double r = input.getR();
-        Double r1 = input.getR1();
-        Double r2 = input.getR2();
-        Double theta = input.getTheta();
-        Double d = input.getD();
-        Double qMax = input.getQMax();
-        Double qStep = input.getQStep();
-        Double mu12 = input.getMu12();
-        Double mu21 = input.getMu21();
-
-        StaticStorage.modelServiceOutput.clear();
-
+        // Symja config
         Config.EXPLICIT_TIMES_OPERATOR = true;
-        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
-        Config.DOUBLE_EPSILON = 1.0E-40D;
+        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-30D;
+        Config.DOUBLE_EPSILON = 1.0E-30D;
+        Config.SERVER_MODE = true;
         // TODO: Добавить выгрузку интегралов в файл и обнулять его только при действии пользователя
 
-        int N = (int) Math.pow(n, 2);
-        // TODO: Что это?
-        util.eval("f(i_) := 6 * (0.25 - i * i / h / h)");
+        StaticStorage.modelServiceOutput.clear();
+        executorService = Executors.newWorkStealingPool();
 
+        System.out.println(getAvailableCores() + " ядер");
+        logService.setConsoleOutput(true);
+
+        n = input.getN();
+        shellIndex = input.getShellIndex();
+        double r = input.getR();
+        util.eval("r := " + r);
+        r1 = input.getR1();
+        r2 = input.getR2();
+        theta = input.getTheta();
+        d = input.getD();
+        double qMax = input.getQMax();
+        double qStep = input.getQStep();
+        Double mu12 = input.getMu12();
+        Double mu21 = input.getMu21();
+        N = (int) Math.pow(n, 2);
+        util.eval("f(i_) := 6 * (0.25 - i * i / h / h)");
+        defineA();
+        defineB();
+        defineKx();
+        defineKy();
         double E1 = input.getE1();
         double E2 = input.getE2();
-//        Параметры Ляме
-        String A = "1";
-        String B = "1";
-//        Параметры кривизны
-        String kx = "1 / r";
-        String ky = "1 / r";
-        if (shellIndex == 1) {
-            A = "1";
-            B = "1";
-            kx = "1 / " + r1;
-            ky = "1 / " + r2;
-        }
-        if (shellIndex == 2) {
-            A = "1";
-            B = "r";
-            kx = "0";
-            ky = "1 / r";
-        }
-        if (shellIndex == 3) {
-            A = "1";
-            B = "xx * " + Math.sin(theta);
-            kx = "0";
-            ky = "1 / (xx * " + Math.tan(theta) + ")";
-        }
-        if (shellIndex == 4) {
-            A = "r";
-            B = "r * Sin(xx)";
-            kx = "1 / r";
-            ky = "1 / r";
-        }
-        if (shellIndex == 5) {
-            A = "r";
-            B = d + " + r * Sin(xx)";
-            kx = "1 / r";
-            ky = "Sin(xx) / ( " + d + "+ r * Sin(xx) )";
-        }
-        util.eval("r := " + r);
-        util.eval("A := " + A);
-        util.eval("B := " + B);
-        util.eval("kx := " + kx);
-        util.eval("ky := " + ky);
-
         double h = input.getH();
         double G = input.getG();
 
-        String U;
-        String V;
-        String W;
-        String PsiX;
-        String PsiY;
-        ArrayList<String> UTemp = new ArrayList<>();
-        ArrayList<String> VTemp = new ArrayList<>();
-        ArrayList<String> WTemp = new ArrayList<>();
-        ArrayList<String> PsiXTemp = new ArrayList<>();
-        ArrayList<String> PsiYTemp = new ArrayList<>();
-
-        LinkedList<String> coefficients = new LinkedList<>();
-        String[] coefficientsArray = new String[N * 5];
-        for (int i = 1; i <= n; i++) {
-            for (int j = 1; j <= n; j++) {
-                String tempU = "u" + i + "" + j + "";
-                UTemp.add(tempU + " * x1(" + i + ") * y1(" + j + ")");
-                String tempV = "v" + i + "" + j + "";
-                VTemp.add(tempV + " * x2(" + i + ") * y2(" + j + ")");
-                String tempW = "w" + i + "" + j + "";
-                WTemp.add(tempW + " * x3(" + i + ") * y3(" + j + ")");
-                String tempPsiX = "psix" + i + "" + j + "";
-                PsiXTemp.add(tempPsiX + " * x4(" + i + ") * y4(" + j + ")");
-                String tempPsiY = "psiy" + i + "" + j + "";
-                PsiYTemp.add(tempPsiY + " * x5(" + i + ") * y5(" + j + ")");
-                coefficients.add(tempU);
-                coefficients.add(tempV);
-                coefficients.add(tempW);
-                coefficients.add(tempPsiX);
-                coefficients.add(tempPsiY);
-            }
-        }
-        int coefIndex = 0;
-        for (String coef : coefficients) {
-            coefficientsArray[coefIndex] = coef;
-            coefIndex++;
-        }
-        U = String.join("+", UTemp);
-        V = String.join("+", VTemp);
-        W = String.join("+", WTemp);
-        PsiX = String.join("+", PsiXTemp);
-        PsiY = String.join("+", PsiYTemp);
-
-        util.eval("U := " + U);
-        util.eval("V := " + V);
-        util.eval("W := " + W);
-        util.eval("PsiX := " + PsiX);
-        util.eval("PsiY := " + PsiY);
+        defineApprox();
 
         util.eval("Theta1 := -(DWX / A + kx * U)");
         util.eval("Theta2 := -(DWY / B + ky * V)");
@@ -222,13 +190,32 @@ public class ModelingServiceImpl implements ModelingService {
 
         util.eval("G := " + G);
 
-        HashMap<String, String> terms = parseService.getTermsFromString(Es);
-        HashMap<String, String> expandedTerms = new HashMap<>();
+        ConcurrentHashMap<String, String> terms = parseService.getTermsFromString(Es);
 
+        ConcurrentHashMap<String, String> definedTermsInsideFunctional = new ConcurrentHashMap<>();
+
+        logService.debug("Реплейс");
         for (String term : terms.keySet()) {
-            String value = StringUtils.replace(util.eval(term).toString(), "\n", "");
-            expandedTerms.put(term, value);
+            String value = term;
+            if (terms.get(term).charAt(0) == '-') {
+                value = "-(" + value + ")";
+            }
+            value = StringUtils.replace(util.eval("ExpandAll( " + value + ")").toString(), "\n", "");
+            if (!parseService.isSign(value.charAt(0))) {
+                value = "+" + value;
+            }
+            definedTermsInsideFunctional.put(term, value);
         }
+
+        logService.debug("Раскрываем");
+        terms = new ConcurrentHashMap<>();
+        Es = "";
+        for (String term : definedTermsInsideFunctional.values()) {
+            // TODO: Здесь идет перезапись по ключу, поэтому знак теряется!!! ИСПРАВИТЬ!!!
+            Es += term;
+        }
+        terms = parseService.getTermsFromString(Es);
+
 
         // Аппроксимирующие функции
         LinkedHashMap<String, String> approximateR = new LinkedHashMap<>();
@@ -244,76 +231,32 @@ public class ModelingServiceImpl implements ModelingService {
             approximateR.put("y4(" + i + ")", "Sin(" + (2 * i - 1) * Math.PI / b + "*yy)");
             approximateR.put("y5(" + i + ")", "Cos(" + (2 * i - 1) * Math.PI / b + "*yy)");
         }
-
-        // Раскрытие
-        StaticStorage.currentTask.clear();
-        StaticStorage.expandResult.clear();
-        logService.next();
-        int currentThreadNum = 0;
-        for (String term : expandedTerms.keySet()) {
-            // Вытащенное значение из интерпретатора
-            String value = expandedTerms.get(term);
-            String sign = terms.get(term);
-            currentThreadNum++;
-            int finalCurrentThreadNum = currentThreadNum;
-            Thread thread = new Thread(() -> {
-                String finalSign = sign;
-                ExprEvaluator ut = new ExprEvaluator(true, 50000);
-                IExpr res = ut.eval("ExpandAll(" + value + ")");
-                String string = StringUtils.replace(res.toString(), "\n", "");
-                if (finalSign.equals("-")) {
-//                    string = parseService.eReplaceAll(string, 100);
-                    string = parseService.expandMinus(string);
-                } else {
-                    if (!parseService.isSign(string.charAt(0))) {
-                        string = "+" + string;
-                    }
-                }
-                StaticStorage.expandResult.add(string);
-                StaticStorage.currentTask.remove(finalCurrentThreadNum);
-            });
-            StaticStorage.currentTask.put(currentThreadNum, thread);
-            thread.start();
-            while (StaticStorage.currentTask.size() > getAvailableCores()) {
-                // Ожидание окончания выполнения задач
-            }
-        }
-        while (StaticStorage.currentTask.size() > 0) {
-            // Ожидание окончания выполнения задач
-        }
-        // Подстановка аппроксимирующих функций в интерпретатор, чтобы символы типа x1(1) были заменены на необходимые тригонометрические функции
-        logService.next();
+        logService.debug("Подстановка аппрокс");
         for (String f : approximateR.keySet()) {
             util.eval(f + ":=" + approximateR.get(f));
         }
-        // Поиск заранее посчитанных производных для дальнейшей подстановки
-        logService.next();
+        logService.debug("Считаем производные");
         ConcurrentHashMap<String, String> computedD = new ConcurrentHashMap<>();
-        computedD.put("dwx", util.eval("ExpandAll(D(" + W + ", xx))").toString());
-        computedD.put("dwy", util.eval("ExpandAll(D(" + W + ", yy))").toString());
-        computedD.put("dux", util.eval("ExpandAll(D(" + U + ", xx))").toString());
-        computedD.put("duy", util.eval("ExpandAll(D(" + U + ", yy))").toString());
-        computedD.put("dvx", util.eval("ExpandAll(D(" + V + ", xx))").toString());
-        computedD.put("dvy", util.eval("ExpandAll(D(" + V + ", yy))").toString());
-        computedD.put("dax", util.eval("ExpandAll(D(" + A + ", xx))").toString());
-        computedD.put("day", util.eval("ExpandAll(D(" + A + ", yy))").toString());
-        computedD.put("dbx", util.eval("ExpandAll(D(" + B + ", xx))").toString());
-        computedD.put("dby", util.eval("ExpandAll(D(" + B + ", yy))").toString());
-        computedD.put("dpsixdx", util.eval("ExpandAll(D(" + PsiX + ", xx))").toString());
-        computedD.put("dpsixdy", util.eval("ExpandAll(D(" + PsiX + ", yy))").toString());
-        computedD.put("dpsiydx", util.eval("ExpandAll(D(" + PsiY + ", xx))").toString());
-        computedD.put("dpsiydy", util.eval("ExpandAll(D(" + PsiY + ", yy))").toString());
+        computedD.put("dwx", "W, xx");
+        computedD.put("dwy", "W, yy");
+        computedD.put("dux", "U, xx");
+        computedD.put("duy", "U, yy");
+        computedD.put("dvx", "V, xx");
+        computedD.put("dvy", "V, yy");
+        computedD.put("dax", "A, xx");
+        computedD.put("day", "A, yy");
+        computedD.put("dbx", "B, xx");
+        computedD.put("dby", "B, yy");
+        computedD.put("dpsixdx", "PsiX, xx");
+        computedD.put("dpsixdy", "PsiX, yy");
+        computedD.put("dpsiydx", "PsiY, xx");
+        computedD.put("dpsiydy", "PsiY, yy");
+        computedD = derivativeTermsConcurrently(computedD);
 
-        //TODO: В многопоточку
-        logService.next();
+        logService.debug("Раскрываем аппрокс");
+        int i = 0;
         Es = "";
-        terms = parseService.getTermsFromString(String.join("", StaticStorage.expandResult));
-
-        StaticStorage.expandResult.clear();
-        currentThreadNum = 0;
         for (String term : terms.keySet()) {
-            currentThreadNum++;
-            String sign = terms.get(term);
             String newValue = term;
             for (String D : computedD.keySet()) {
                 if (newValue.contains(D)) {
@@ -330,39 +273,56 @@ public class ModelingServiceImpl implements ModelingService {
             for (String f : approximateR.keySet()) {
                 newValue = StringUtils.replace(newValue, f, approximateR.get(f));
             }
-            Es += sign + newValue;
+            if (!parseService.isSign(newValue.charAt(0))) {
+                newValue = "+" + newValue;
+            }
+            Es += newValue;
+            i++;
+//            System.out.println(newValue);
+//            System.out.println(i + "/" + terms.size());
         }
 
-        logService.next();
+        logService.debug("Получаем");
+
         terms = parseService.getTermsFromString(Es);
 
-        logService.next();
+/*        List<String> set = new ArrayList(Arrays.asList(terms.keySet().toArray()));
+        Collections.sort(set);
+        for(String term: set)
+        {
+            System.out.println(terms.get(term) + term.replace("\n", ""));
+        }
+        System.exit(0);*/
+
         String afterIntegrate = mathService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
-
-        logService.next();
         terms = parseService.getTermsFromString(afterIntegrate);
+        ConcurrentHashMap<String, String> gradient = mathService.multithreadingGradient(util, terms, coefficients);
 
-        logService.next();
-        ConcurrentHashMap<String, String> gradient = mathService.multithreadingGradient(terms, coefficients);
+        System.out.println(gradient);
 
-        logService.next();
+        System.exit(0);
+
         ConcurrentHashMap<String, String> hessian = new ConcurrentHashMap<>();
         for (String key : gradient.keySet()) {
             terms = parseService.getTermsFromString(gradient.get(key));
-            ConcurrentHashMap<String, String> grad = mathService.multithreadingGradient(terms, coefficients);
+            ConcurrentHashMap<String, String> grad = mathService.multithreadingGradient(util, terms, coefficients);
             grad.forEach((kk, vv) -> {
                 hessian.put(key + "|" + kk, util.eval(vv).toString());
             });
         }
 
         // Newton's method
-        logService.next();
+//        logService.next();
+
         newtonMethod(a, b, coefficientsArray, qMax, qStep, gradient, hessian);
+        logService.next();
+        logService.next();
         logService.stop();
     }
 
     @Override
     public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, ConcurrentHashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) {
+
         // Searching vector
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
         double[] computedGradient = new double[coefficients.length];
@@ -377,10 +337,8 @@ public class ModelingServiceImpl implements ModelingService {
         int currentHessianJ;
         boolean firstStep;
         //TODO: Оптимизация
-        long startTime = System.nanoTime();
-        long qTime = System.nanoTime();
-
-        System.out.println("Работающий потоков еще: " + StaticStorage.currentTask.size());
+        long startTime;
+        long qTime;
 
         while (q < qMax) {
             System.out.println("q:" + q);
@@ -392,66 +350,15 @@ public class ModelingServiceImpl implements ModelingService {
                 qTime = System.nanoTime();
                 zz++;
                 currentGradientIndex = 0;
-
                 for (int j = 0; j < coefficients.length; j++) {
-
-//                    startTime = System.nanoTime();
                     String value = gradient.get(coefficients[j]);
-//                    System.out.println("Выборка из ConcurrentHashMap:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-
-//                    startTime = System.nanoTime();
                     value = StringUtils.replace(value, "q", Double.toString(q));
-//                    System.out.println("Замена q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-
-//                    startTime = System.nanoTime();
                     for (int i = 0; i < coefficients.length; i++) {
-//                        startTime = System.nanoTime();
                         String valueOfCoef = String.valueOf(grail.get(coefficients[i]));
-//                        System.out.println("Получение:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-//                        startTime = System.nanoTime();
                         value = StringUtils.replace(value, coefficients[i], valueOfCoef);
-//                        System.out.println("String Utils:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                     }
-//                    System.out.println("Замена коэффов:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-
-//                    startTime = System.nanoTime();
-                    ArrayList<String> arr = new ArrayList<>(Arrays.asList(value.split("\\+")));
-                    arr.remove("");
-                    ConcurrentLinkedDeque<Double> out = new ConcurrentLinkedDeque<>();
-                    int blockSize = arr.size() / getAvailableCores();
-                    for (int i = 0; i < getAvailableCores(); i++) {
-                        List<String> partialKeys;
-                        if (i == getAvailableCores() - 1) {
-                            partialKeys = arr.subList(blockSize * i, arr.size());
-                        } else {
-                            partialKeys = arr.subList(blockSize * i, blockSize * (i + 1));
-                        }
-                        int finalI = i;
-                        if (!partialKeys.isEmpty()) {
-                            Thread thread = new Thread(() -> {
-                                Expression expression = new Expression(util.eval(String.join("+", partialKeys)).toString());
-                                Double v = expression.eval().doubleValue();
-                                out.add(v);
-                                StaticStorage.currentTask.remove(finalI);
-                            });
-                            StaticStorage.currentTask.put(i, thread);
-                            thread.start();
-                        }
-                    }
-                    while (StaticStorage.currentTask.size() > 0) {
-                        // Waiting for task executing
-                    }
-//                    System.out.println("Упрощение:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-
-//                    startTime = System.nanoTime();
-                    computedGradient[currentGradientIndex] = 0.0;
-                    for (Double term : out) {
-                        if (term != null) {
-                            computedGradient[currentGradientIndex] += term;
-                        }
-                    }
+                    computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(value).toString());
                     currentGradientIndex++;
-//                    System.out.println("Вставка:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 }
                 System.out.println("Подстановка градиента:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 currentHessianI = 0;
@@ -471,26 +378,14 @@ public class ModelingServiceImpl implements ModelingService {
                     currentHessianI++;
                 }
                 System.out.println("Подстановка Гессе:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-
-//                startTime = System.nanoTime();
                 SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
-//                System.out.println("Формирование первой SimpleMatrix:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-
                 // xi+1 = xi - H(xi)^-1 * G(xi);
-//                startTime = System.nanoTime();
                 firstMatrix = firstMatrix.invert();
-//                System.out.println("Инфверсия этой матрицы:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
-//                startTime = System.nanoTime();
                 SimpleMatrix secondMatrix = new SimpleMatrix(new double[][]{computedGradient});
-//                System.out.println("Формирование второй SimpleMatrix:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
-
-//                startTime = System.nanoTime();
                 double[] multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
-//                System.out.println("Перемножение матриц:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
 
                 int t = 0;
-//                startTime = System.nanoTime();
                 for (String key : grail.keySet()) {
                     Double temp = Math.abs(grail.get(key) - multiply[t]);
                     if (temp < max) {
@@ -498,21 +393,17 @@ public class ModelingServiceImpl implements ModelingService {
                     }
                     t++;
                 }
-//                System.out.println("Определение точности:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 if (max < eps && !firstStep) {
                     break;
                 }
                 t = 0;
-//                startTime = System.nanoTime();
                 for (String key : grail.keySet()) {
                     grail.replace(key, grail.get(key) - multiply[t]);
                     t++;
                 }
-//                System.out.println("Подстановка новых коэффов" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 firstStep = false;
                 System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
             }
-            long start = System.nanoTime();
             String Woutput = util.eval("W").toString();
             String Woutput0 = StringUtils.replace(Woutput, "xx", String.valueOf(a / 2));
             Woutput0 = StringUtils.replace(Woutput0, "yy", String.valueOf(b / 2));
@@ -537,10 +428,133 @@ public class ModelingServiceImpl implements ModelingService {
             wOut.add(Double.parseDouble(Woutput0));
             wOut.add(Double.parseDouble(Woutput1));
             StaticStorage.modelServiceOutput.put(q, wOut);
-//            System.out.println("Подстановка W:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
             q += qStep;
         }
     }
 
+    private void defineA() {
+        String A = "1";
+        switch (shellIndex) {
+            case 1:
+            case 2:
+            case 3:
+                A = "1";
+                break;
+            case 4:
+            case 5:
+                A = "r";
+                break;
+        }
+        util.eval("A := " + A);
+    }
 
+    private void defineB() {
+        String B = "1";
+        switch (shellIndex) {
+            case 1:
+                B = "1";
+                break;
+            case 2:
+                B = "r";
+                break;
+            case 3:
+                B = "xx * " + Math.sin(theta);
+                break;
+            case 4:
+                B = "r * Sin(xx)";
+                break;
+            case 5:
+                B = d + " + r * Sin(xx)";
+                break;
+        }
+        util.eval("B := " + B);
+
+    }
+
+    private void defineKx() {
+        String kx = "1 / r";
+        switch (shellIndex) {
+            case 1:
+                kx = "1 / " + r1;
+                break;
+            case 2:
+            case 3:
+                kx = "0";
+                break;
+            case 4:
+            case 5:
+                kx = "1 / r";
+                break;
+        }
+        util.eval("kx := " + kx);
+    }
+
+    private void defineKy() {
+        String ky = "1 / r";
+        switch (shellIndex) {
+            case 4:
+            case 1:
+            case 2:
+                ky = "1 / " + r2;
+                break;
+            case 3:
+                ky = "1 / (xx * " + Math.tan(theta) + ")";
+                break;
+            case 5:
+                ky = "Sin(xx) / ( " + d + "+ r * Sin(xx) )";
+                break;
+        }
+        util.eval("ky := " + ky);
+    }
+
+    private void defineApprox() {
+        String U;
+        String V;
+        String W;
+        String PsiX;
+        String PsiY;
+        ArrayList<String> UTemp = new ArrayList<>();
+        ArrayList<String> VTemp = new ArrayList<>();
+        ArrayList<String> WTemp = new ArrayList<>();
+        ArrayList<String> PsiXTemp = new ArrayList<>();
+        ArrayList<String> PsiYTemp = new ArrayList<>();
+
+        coefficients = new LinkedList<>();
+        coefficientsArray = new String[N * 5];
+        for (int i = 1; i <= n; i++) {
+            for (int j = 1; j <= n; j++) {
+                String tempU = "u" + i + "" + j + "";
+                UTemp.add(tempU + " * x1(" + i + ") * y1(" + j + ")");
+                String tempV = "v" + i + "" + j + "";
+                VTemp.add(tempV + " * x2(" + i + ") * y2(" + j + ")");
+                String tempW = "w" + i + "" + j + "";
+                WTemp.add(tempW + " * x3(" + i + ") * y3(" + j + ")");
+                String tempPsiX = "psix" + i + "" + j + "";
+                PsiXTemp.add(tempPsiX + " * x4(" + i + ") * y4(" + j + ")");
+                String tempPsiY = "psiy" + i + "" + j + "";
+                PsiYTemp.add(tempPsiY + " * x5(" + i + ") * y5(" + j + ")");
+                coefficients.add(tempU);
+                coefficients.add(tempV);
+                coefficients.add(tempW);
+                coefficients.add(tempPsiX);
+                coefficients.add(tempPsiY);
+            }
+        }
+        int coefIndex = 0;
+        for (String coef : coefficients) {
+            coefficientsArray[coefIndex] = coef;
+            coefIndex++;
+        }
+        U = String.join("+", UTemp);
+        V = String.join("+", VTemp);
+        W = String.join("+", WTemp);
+        PsiX = String.join("+", PsiXTemp);
+        PsiY = String.join("+", PsiYTemp);
+
+        util.eval("U := " + U);
+        util.eval("V := " + V);
+        util.eval("W := " + W);
+        util.eval("PsiX := " + PsiX);
+        util.eval("PsiY := " + PsiY);
+    }
 }

@@ -268,8 +268,8 @@ class ParseServiceImplTest {
 
         in = "10384.615384615385*dux*dwx^2.0";
         String out =  parseService.expandDegreeByTerm(in, "dwx");
-        out = out.replaceAll("dwx", "(" + "cos(x)*w + sin(x)^2" + ")");
-        assertEquals("-1237.5*dwx*dwx-1237",out);
+//        out = out.replaceAll("dwx", "(" + "cos(x)*w + sin(x)^2" + ")");
+        assertEquals("10384.615384615385*dux*dwx*dwx",out);
 
 
         in = "76.92307692307692*(0.5817764173314433*w11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)+1.7453292519943298*w12*Cos(1.7453292519943298*yy)*Sin(0.5817764173314433*xx)+0.5817764173314433*w21*Cos(0.5817764173314433*yy)*Sin(1.7453292519943298*xx)+1.7453292519943298*w22*Cos(1.7453292519943298*yy)*Sin(1.7453292519943298*xx))^2.0*w12*x3(1.0)*y3(2.0)";

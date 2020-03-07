@@ -39,14 +39,10 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             int currentThreadNum = i;
             Thread thread = new Thread(() -> {
 //                StaticStorage.integrateResult.add(this.partialDoubleIntegrate(partialTerms, variableX, fromX, toX, variableY, fromY, toY));
-                StaticStorage.currentTask.remove(currentThreadNum);
             });
-            StaticStorage.currentTask.put(currentThreadNum, thread);
             thread.start();
         }
-        while (StaticStorage.currentTask.size() > 0) {
-            // Waiting for task executing
-        }
+
         return null;
     }
 
