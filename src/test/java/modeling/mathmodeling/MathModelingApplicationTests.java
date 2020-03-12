@@ -56,7 +56,7 @@ class MathModelingApplicationTests {
         dto.setZ(-0.045);
         dto.setK(0.8333333);
         dto.setG(80769.23076923077);
-        dto.setQMax(3.0);
+        dto.setQMax(3.5);
         dto.setQStep(0.01);
 
         modelingService.model(dto);

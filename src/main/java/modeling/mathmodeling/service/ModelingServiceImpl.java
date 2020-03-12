@@ -3,6 +3,7 @@ package modeling.mathmodeling.service;
 import modeling.mathmodeling.dto.InputDTO;
 import modeling.mathmodeling.storage.StaticStorage;
 
+import modeling.mathmodeling.webservice.PyMathService;
 import org.apache.commons.lang3.StringUtils;
 import org.ejml.simple.SimpleMatrix;
 import org.matheclipse.core.basic.Config;
@@ -17,6 +18,9 @@ import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
 @Service
 public class ModelingServiceImpl implements ModelingService {
+
+    @Autowired
+    PyMathService pyMathService;
 
     @Autowired
     ParseService parseService;
@@ -40,31 +44,6 @@ public class ModelingServiceImpl implements ModelingService {
     private LinkedList<String> coefficients;
 
     private ExecutorService executorService;
-
-    private String expandTermsConcurrently(Map<String, String> terms) {
-        executorService = Executors.newWorkStealingPool();
-        ConcurrentLinkedQueue<String> expandResult = new ConcurrentLinkedQueue<>();
-        for (String term : terms.keySet()) {
-            Runnable task = () -> {
-                System.out.println(terms.get(term));
-                String inputString = "ExpandAll(" + terms.get(term) + term + ")";
-                String res = util.eval(inputString).toString();
-                res = StringUtils.replace(res, "\n", "");
-                if (!parseService.isSign(res.charAt(0))) {
-                    res = "+" + res;
-                }
-                expandResult.add(res);
-            };
-            executorService.execute(task);
-        }
-        executorService.shutdown();
-        try {
-            executorService.awaitTermination(60, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        return String.join("", expandResult);
-    }
 
     private ConcurrentHashMap<String, String> derivativeTermsConcurrently(Map<String, String> terms) {
         executorService = Executors.newWorkStealingPool();
@@ -123,8 +102,32 @@ public class ModelingServiceImpl implements ModelingService {
         double E2 = input.getE2();
         double h = input.getH();
         double G = input.getG();
+        util.eval("E1 := " + E1);
+        util.eval("E2 := " + E2);
 
-        defineApprox();
+        util.eval("mu12 := " + mu12);
+        util.eval("mu21 := " + mu21);
+
+        util.eval("h := " + h);
+
+        double z = input.getZ();
+        util.eval("z := " + z);
+
+        double k = input.getK();
+        util.eval("k := " + k);
+
+        double a = input.getA1();
+        util.eval("a := " + a);
+
+        double a1 = input.getA0();
+        util.eval("a1 := " + a1);
+
+        double b = input.getB1();
+        util.eval("b := " + b);
+
+        util.eval("G := " + G);
+
+        defineApprox(a, b);
 
         util.eval("Theta1 := -(DWX / A + kx * U)");
         util.eval("Theta2 := -(DWY / B + ky * V)");
@@ -165,76 +168,12 @@ public class ModelingServiceImpl implements ModelingService {
                 "0.5 * Qx * PsiX - 0.5 * QX * Theta1 "
                 + "+ 0.5 * QY * PsiY - 0.5 * QY * Theta2 - q * W * A * B";
 
-        util.eval("E1 := " + E1);
-        util.eval("E2 := " + E2);
+        Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
 
-        util.eval("mu12 := " + mu12);
-        util.eval("mu21 := " + mu21);
-
-        util.eval("h := " + h);
-
-        double z = input.getZ();
-        util.eval("z := " + z);
-
-        double k = input.getK();
-        util.eval("k := " + k);
-
-        double a = input.getA1();
-        util.eval("a := " + a);
-
-        double a1 = input.getA0();
-        util.eval("a1 := " + a1);
-
-        double b = input.getB1();
-        util.eval("b := " + b);
-
-        util.eval("G := " + G);
-
-        ConcurrentHashMap<String, String> terms = parseService.getTermsFromString(Es);
-
-        ConcurrentHashMap<String, String> definedTermsInsideFunctional = new ConcurrentHashMap<>();
-
-        logService.debug("Реплейс");
-        for (String term : terms.keySet()) {
-            String value = term;
-            if (terms.get(term).charAt(0) == '-') {
-                value = "-(" + value + ")";
-            }
-            value = StringUtils.replace(util.eval("ExpandAll( " + value + ")").toString(), "\n", "");
-            if (!parseService.isSign(value.charAt(0))) {
-                value = "+" + value;
-            }
-            definedTermsInsideFunctional.put(term, value);
-        }
-
-        logService.debug("Раскрываем");
-        terms = new ConcurrentHashMap<>();
-        Es = "";
-        for (String term : definedTermsInsideFunctional.values()) {
-            // TODO: Здесь идет перезапись по ключу, поэтому знак теряется!!! ИСПРАВИТЬ!!!
-            Es += term;
-        }
-        terms = parseService.getTermsFromString(Es);
-
-
-        // Аппроксимирующие функции
-        LinkedHashMap<String, String> approximateR = new LinkedHashMap<>();
         for (int i = 1; i <= n; i++) {
-            approximateR.put("x1(" + i + ")", "Sin(" + 2 * i * Math.PI / a + "*xx)");
-            approximateR.put("x2(" + i + ")", "Sin(" + (2 * i - 1) * Math.PI / a + "*xx)");
-            approximateR.put("x3(" + i + ")", "Sin(" + (2 * i - 1) * Math.PI / a + "*xx)");
-            approximateR.put("x4(" + i + ")", "Cos(" + (2 * i - 1) * Math.PI / a + "*xx)");
-            approximateR.put("x5(" + i + ")", "Sin(" + (2 * i - 1) * Math.PI / a + "*xx)");
-            approximateR.put("y1(" + i + ")", "Sin(" + (2 * i - 1) * Math.PI / b + "*yy)");
-            approximateR.put("y2(" + i + ")", "Sin(" + 2 * i * Math.PI / b + "*yy)");
-            approximateR.put("y3(" + i + ")", "Sin(" + (2 * i - 1) * Math.PI / b + "*yy)");
-            approximateR.put("y4(" + i + ")", "Sin(" + (2 * i - 1) * Math.PI / b + "*yy)");
-            approximateR.put("y5(" + i + ")", "Cos(" + (2 * i - 1) * Math.PI / b + "*yy)");
+            Es = StringUtils.replace(Es, "(" + i + ".0)", "(" + i + ")");
         }
-        logService.debug("Подстановка аппрокс");
-        for (String f : approximateR.keySet()) {
-            util.eval(f + ":=" + approximateR.get(f));
-        }
+
         logService.debug("Считаем производные");
         ConcurrentHashMap<String, String> computedD = new ConcurrentHashMap<>();
         computedD.put("dwx", "W, xx");
@@ -253,59 +192,36 @@ public class ModelingServiceImpl implements ModelingService {
         computedD.put("dpsiydy", "PsiY, yy");
         computedD = derivativeTermsConcurrently(computedD);
 
-        logService.debug("Раскрываем аппрокс");
-        int i = 0;
-        Es = "";
-        for (String term : terms.keySet()) {
-            String newValue = term;
-            for (String D : computedD.keySet()) {
-                if (newValue.contains(D)) {
-                    newValue = parseService.expandDegreeByTerm(newValue, D);
-                    newValue = StringUtils.replace(newValue, D, "(" + computedD.get(D) + ")");
-                    newValue = util.eval("ExpandAll(" + newValue + ")").toString();
-                }
-            }
-            newValue = StringUtils.replace(newValue, "(1.0)", "(1)");
-            newValue = StringUtils.replace(newValue, "(2.0)", "(2)");
-            newValue = StringUtils.replace(newValue, "(3.0)", "(3)");
-            newValue = StringUtils.replace(newValue, "(4.0)", "(4)");
-            newValue = StringUtils.replace(newValue, "(5.0)", "(5)");
-            for (String f : approximateR.keySet()) {
-                newValue = StringUtils.replace(newValue, f, approximateR.get(f));
-            }
-            if (!parseService.isSign(newValue.charAt(0))) {
-                newValue = "+" + newValue;
-            }
-            Es += newValue;
-            i++;
-//            System.out.println(newValue);
-//            System.out.println(i + "/" + terms.size());
+        for (String d : computedD.keySet()) {
+//            util.eval(d + ":=" + computedD.get(d));
+            Es = StringUtils.replace(Es, d, "(" + computedD.get(d) + ")");
         }
 
-        logService.debug("Получаем");
+        logService.debug("Отправляем запрос");
+        Es = pyMathService.expand(Es);
+        logService.debug("Замена ** и пробела");
+        Es = StringUtils.replace(Es, "**", "^");
+        Es = StringUtils.replace(Es, " ", "");
 
-        terms = parseService.getTermsFromString(Es);
+        logService.debug("Разбиваем на terms");
+        HashMap<String, String> terms = parseService.getTermsFromString(Es);
 
-/*        List<String> set = new ArrayList(Arrays.asList(terms.keySet().toArray()));
-        Collections.sort(set);
-        for(String term: set)
-        {
-            System.out.println(terms.get(term) + term.replace("\n", ""));
-        }
-        System.exit(0);*/
-
-        String afterIntegrate = mathService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
+        logService.debug("Считаем интеграл в многопоточке");
+        String afterIntegrate = mathService.partialDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
+//        System.exit(0);
+        logService.debug("Разбиваем на terms");
         terms = parseService.getTermsFromString(afterIntegrate);
-        ConcurrentHashMap<String, String> gradient = mathService.multithreadingGradient(util, terms, coefficients);
-
-        System.out.println(gradient);
-
-        System.exit(0);
-
+        logService.debug("Считаем градиент");
+        HashMap<String, String> gradient = mathService.multithreadingGradient(util, terms, coefficients);
+        for(String key:gradient.keySet()) {
+            System.out.println(key + " : " + util.eval(gradient.get(key)).toString().replace("\n",""));
+        }
+//        System.exit(0);
+        logService.debug("Считаем Гесса");
         ConcurrentHashMap<String, String> hessian = new ConcurrentHashMap<>();
         for (String key : gradient.keySet()) {
             terms = parseService.getTermsFromString(gradient.get(key));
-            ConcurrentHashMap<String, String> grad = mathService.multithreadingGradient(util, terms, coefficients);
+            HashMap<String, String> grad = mathService.multithreadingGradient(util, terms, coefficients);
             grad.forEach((kk, vv) -> {
                 hessian.put(key + "|" + kk, util.eval(vv).toString());
             });
@@ -313,7 +229,7 @@ public class ModelingServiceImpl implements ModelingService {
 
         // Newton's method
 //        logService.next();
-
+        logService.debug("Метод Ньютона");
         newtonMethod(a, b, coefficientsArray, qMax, qStep, gradient, hessian);
         logService.next();
         logService.next();
@@ -321,7 +237,7 @@ public class ModelingServiceImpl implements ModelingService {
     }
 
     @Override
-    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, ConcurrentHashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) {
+    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, HashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) {
 
         // Searching vector
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
@@ -507,7 +423,7 @@ public class ModelingServiceImpl implements ModelingService {
         util.eval("ky := " + ky);
     }
 
-    private void defineApprox() {
+    private void defineApprox(double a, double b) {
         String U;
         String V;
         String W;
@@ -521,18 +437,19 @@ public class ModelingServiceImpl implements ModelingService {
 
         coefficients = new LinkedList<>();
         coefficientsArray = new String[N * 5];
+
         for (int i = 1; i <= n; i++) {
             for (int j = 1; j <= n; j++) {
                 String tempU = "u" + i + "" + j + "";
-                UTemp.add(tempU + " * x1(" + i + ") * y1(" + j + ")");
+                UTemp.add(tempU + " * Sin(" + 2 * i * Math.PI / a + "*xx) * Sin(" + (2 * j - 1) * Math.PI / b + "*yy)"); // x1 * y1
                 String tempV = "v" + i + "" + j + "";
-                VTemp.add(tempV + " * x2(" + i + ") * y2(" + j + ")");
+                VTemp.add(tempV + " * Sin(" + (2 * i - 1) * Math.PI / a + "*xx) * Sin(" + 2 * j * Math.PI / b + "*yy)"); // x2 * y2
                 String tempW = "w" + i + "" + j + "";
-                WTemp.add(tempW + " * x3(" + i + ") * y3(" + j + ")");
+                WTemp.add(tempW + " * Sin(" + (2 * i - 1) * Math.PI / a + "*xx) * Sin(" + (2 * j - 1) * Math.PI / b + "*yy) "); // x3 * y3
                 String tempPsiX = "psix" + i + "" + j + "";
-                PsiXTemp.add(tempPsiX + " * x4(" + i + ") * y4(" + j + ")");
+                PsiXTemp.add(tempPsiX + " * Cos(" + (2 * i - 1) * Math.PI / a + "*xx) * Sin(" + (2 * j - 1) * Math.PI / b + "*yy) "); // x4 * y4
                 String tempPsiY = "psiy" + i + "" + j + "";
-                PsiYTemp.add(tempPsiY + " * x5(" + i + ") * y5(" + j + ")");
+                PsiYTemp.add(tempPsiY + " * Sin(" + (2 * i - 1) * Math.PI / a + "*xx) * Cos(" + (2 * j - 1) * Math.PI / b + "*yy) "); // x5 * y5
                 coefficients.add(tempU);
                 coefficients.add(tempV);
                 coefficients.add(tempW);

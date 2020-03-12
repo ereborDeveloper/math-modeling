@@ -14,8 +14,8 @@ public class ParseServiceImpl implements ParseService {
 //    private ExprEvaluator util = new ExprEvaluator(true, 500000);
 
     @Override
-    public ConcurrentHashMap<String, String> getTermsFromString(String input) {
-        ConcurrentHashMap<String, String> terms = new ConcurrentHashMap<>();
+    public HashMap<String, String> getTermsFromString(String input) {
+        HashMap<String, String> terms = new HashMap<>();
         String output;
         input = input.replaceAll(" ", "");
         int beginIndex = 0;
@@ -72,7 +72,7 @@ public class ParseServiceImpl implements ParseService {
     public double getNumericResult(String input) {
         double numericOutput = 0.0;
         String output;
-        ConcurrentHashMap<String, String> terms = getTermsFromString(input);
+        HashMap<String, String> terms = getTermsFromString(input);
         for (String term : terms.keySet()) {
             int lastPosition = 0;
             Character currentSign;

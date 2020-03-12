@@ -24,7 +24,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String partialIntegrate(ExprEvaluator util, ConcurrentHashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
+    public String partialIntegrate(ExprEvaluator util, HashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
         String output = "";
         Config.EXPLICIT_TIMES_OPERATOR = true;
         Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
@@ -76,7 +76,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public ConcurrentHashMap<String, String> multithreadingGradient(ExprEvaluator util, ConcurrentHashMap<String, String> expandedTerms, LinkedList<String> variables) {
+    public HashMap<String, String> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables) {
         StaticStorage.derivativeResult.clear();
         StaticStorage.alreadyComputedDerivatives.clear();
         ExecutorService executorService = Executors.newWorkStealingPool();
@@ -92,11 +92,11 @@ public class MathServiceImpl implements MathService {
         } catch (Exception e) {
 
         }
-        return new ConcurrentHashMap<>(StaticStorage.gradient);
+        return new HashMap<>(StaticStorage.gradient);
     }
 
     @Override
-    public String partialDerivative(ExprEvaluator util, ConcurrentHashMap<String, String> terms, String variable) {
+    public String partialDerivative(ExprEvaluator util, HashMap<String, String> terms, String variable) {
         String output = "";
         Config.EXPLICIT_TIMES_OPERATOR = true;
         if (terms.isEmpty()) {
@@ -151,7 +151,7 @@ public class MathServiceImpl implements MathService {
             return "+0.0";
         }
         output = StringUtils.replace(output, "+-", "-");
-        return StringUtils.replace(output, "--", "+");
+        return util.eval(StringUtils.replace(output, "--", "+")).toString();
     }
 
     @Override
@@ -228,7 +228,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String multithreadingDoubleIntegrate(ConcurrentHashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+    public String multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
         StaticStorage.integrateResult.clear();
         int termsCount = expandedTerms.size();
         int blockSize = termsCount / getAvailableCores();

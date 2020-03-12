@@ -1,5 +1,6 @@
 package modeling.mathmodeling;
 
+import modeling.mathmodeling.network.PyServer;
 import modeling.mathmodeling.service.LogService;
 import modeling.mathmodeling.storage.Settings;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +43,7 @@ public class MathModelingApplication {
     }
 	@EventListener(ApplicationReadyEvent.class)
 	public void doAfterStartup() {
+        PyServer.getInstance();
         Settings.setAvailableCores(Runtime.getRuntime().availableProcessors() / 2);
         Settings.setIsDerivativeCached(true);
         Settings.setIsIntegrateCached(true);

@@ -33,6 +33,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>3.4.2</version>
+        </dependency>
+        <dependency>
             <groupId>org.ujmp</groupId>
             <artifactId>ujmp-core</artifactId>
             <version>0.3.0</version>

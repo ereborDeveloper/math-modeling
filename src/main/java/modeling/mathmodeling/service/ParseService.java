@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 public interface ParseService {
-    ConcurrentHashMap<String, String> getTermsFromString(String input);
+    HashMap<String, String> getTermsFromString(String input);
 
     double getNumericResult(String input);
 
