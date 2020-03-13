@@ -82,7 +82,7 @@ public class ModelingServiceImpl implements ModelingService {
         // TODO: Добавить выгрузку интегралов в файл и обнулять его только при действии пользователя
 
         StaticStorage.modelServiceOutput.clear();
-        System.out.println(getAvailableCores() + " ядер");
+        System.out.println(getAvailableCores() + " потоков");
         logService.setConsoleOutput(true);
 
         n = input.getN();
@@ -174,34 +174,7 @@ public class ModelingServiceImpl implements ModelingService {
                 "0.5 * Qx * PsiX - 0.5 * QX * Theta1 "
                 + "+ 0.5 * QY * PsiY - 0.5 * QY * Theta2 - q * W * A * B";
 
-        logService.debug("Считаем производные");
-        HashMap<String, String> computedD = new HashMap<>();
-        computedD.put("dwx", "W, xx");
-        computedD.put("dwy", "W, yy");
-        computedD.put("dux", "U, xx");
-        computedD.put("duy", "U, yy");
-        computedD.put("dvx", "V, xx");
-        computedD.put("dvy", "V, yy");
-        computedD.put("dax", "A, xx");
-        computedD.put("day", "A, yy");
-        computedD.put("dbx", "B, xx");
-        computedD.put("dby", "B, yy");
-        computedD.put("dpsixdx", "PsiX, xx");
-        computedD.put("dpsixdy", "PsiX, yy");
-        computedD.put("dpsiydx", "PsiY, xx");
-        computedD.put("dpsiydy", "PsiY, yy");
-//        derivativeTermsConcurrently(computedD);
-
         Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
-
-//        System.out.println(Es);
-//        System.exit(0);
-
-/*
-        for (int i = 1; i <= n; i++) {
-            Es = StringUtils.replace(Es, "(" + i + ".0)", "(" + i + ")");
-        }
-*/
 
         logService.debug("Раскрытие степеней");
         Es = parseService.expandAllDegrees(Es);
@@ -212,15 +185,11 @@ public class ModelingServiceImpl implements ModelingService {
         Es = StringUtils.replace(Es, "**", "^");
         Es = StringUtils.replace(Es, " ", "");
 
-        System.out.println(Es);
-//        System.exit(0);
-
         logService.debug("Разбиваем на terms");
         HashMap<String, String> terms = parseService.getTermsFromString(Es);
 
         logService.debug("Считаем интеграл в многопоточке");
-        String afterIntegrate = mathService.partialDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
-//        System.exit(0);
+        String afterIntegrate = mathService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
         afterIntegrate = StringUtils.replace(afterIntegrate, "\n", "");
         logService.debug("Разбиваем на terms");
         terms = parseService.getTermsFromString(afterIntegrate);

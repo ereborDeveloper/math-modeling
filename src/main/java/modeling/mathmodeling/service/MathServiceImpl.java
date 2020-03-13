@@ -77,13 +77,12 @@ public class MathServiceImpl implements MathService {
 
     @Override
     public HashMap<String, String> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables) {
-        StaticStorage.derivativeResult.clear();
 //        StaticStorage.alreadyComputedDerivatives.clear();
-        StaticStorage.gradient.clear();
+        ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
         ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
             Runnable task = () -> {
-                StaticStorage.gradient.put(variable, partialDerivative(util, expandedTerms, variable));
+                gradient.put(variable, partialDerivative(util, expandedTerms, variable));
             };
             executorService.execute(task);
         }
@@ -93,7 +92,7 @@ public class MathServiceImpl implements MathService {
         } catch (Exception e) {
 
         }
-        return new HashMap<>(StaticStorage.gradient);
+        return new HashMap<>(gradient);
     }
 
     @Override
@@ -137,10 +136,15 @@ public class MathServiceImpl implements MathService {
                 // Если не зависит от переменной, пропускаем
                 continue;
             }
+            String resultStr = String.join("*", result);
+            if(StringUtils.contains(resultStr, "E-"))
+            {
+                System.out.println(resultStr);
+            }
             String sign = terms.get(term);
             String parsedResult;
             if (!factors.isEmpty()) {
-                parsedResult = String.join("*", factors) + "*" + String.join("*", result);
+                parsedResult = String.join("*", factors) + "*" + resultStr;
             } else {
                 parsedResult = String.join("*", result);
             }
@@ -157,6 +161,8 @@ public class MathServiceImpl implements MathService {
 
     @Override
     public String partialDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+        int i = 0;
+        int size = expandedTerms.size();
         String output = "";
         ExprEvaluator util = new ExprEvaluator(true, 50000);
         Config.EXPLICIT_TIMES_OPERATOR = true;
@@ -164,7 +170,7 @@ public class MathServiceImpl implements MathService {
         Config.DOUBLE_EPSILON = 1.0E-40D;
 
         for (String term : expandedTerms.keySet()) {
-            if (term.replace("\n", "").trim().length() == 0) {
+            if (StringUtils.replace(term, "\n", "").trim().length() == 0) {
                 continue;
             }
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
@@ -213,24 +219,34 @@ public class MathServiceImpl implements MathService {
             } else {
                 result.add(String.valueOf(toY - fromY));
             }
+
+            String resultStr = String.join("*", result);
+            if(StringUtils.contains(resultStr, "E-"))
+            {
+                System.out.println(resultStr);
+//                continue;
+            }
+
             String sign = expandedTerms.get(term);
             String parsedResult;
             if (!factors.isEmpty()) {
-                parsedResult = String.join("*", factors) + "*" + String.join("*", result);
+                parsedResult = String.join("*", factors) + "*" + resultStr;
             } else {
                 parsedResult = String.join("*", result);
             }
+
             if (parsedResult != "") {
                 output += sign + parsedResult;
             }
+            i++;
+//            System.out.println(i + "/" + size);
         }
-        output = StringUtils.replace(output, "+-", "-");
-        return StringUtils.replace(output, "--", "+");
+        return output;
     }
 
     @Override
     public String multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
-        StaticStorage.integrateResult.clear();
+        ConcurrentLinkedQueue<String> result = new ConcurrentLinkedQueue<>();
         int termsCount = expandedTerms.size();
         int blockSize = termsCount / getAvailableCores();
 
@@ -249,7 +265,7 @@ public class MathServiceImpl implements MathService {
             }
             // adding terms to runnable
             Runnable task = () -> {
-                StaticStorage.integrateResult.add(this.partialDoubleIntegrate(partialTerms, variableX, fromX, toX, variableY, fromY, toY));
+                result.add(this.partialDoubleIntegrate(partialTerms, variableX, fromX, toX, variableY, fromY, toY));
             };
             executorService.execute(task);
         }
@@ -259,7 +275,7 @@ public class MathServiceImpl implements MathService {
         } catch (Exception e) {
 
         }
-        return String.join("", StaticStorage.integrateResult);
+        return String.join("", result);
     }
 
 }

@@ -44,7 +44,7 @@ public class MathModelingApplication {
 	@EventListener(ApplicationReadyEvent.class)
 	public void doAfterStartup() {
         PyServer.getInstance();
-        Settings.setAvailableCores(Runtime.getRuntime().availableProcessors() / 2);
+        Settings.setAvailableCores(Runtime.getRuntime().availableProcessors());
         Settings.setIsDerivativeCached(true);
         Settings.setIsIntegrateCached(true);
         logService.initialize();

@@ -22,7 +22,6 @@ public class MathMatrixServiceImpl implements MathMatrixService {
 
     @Override
     public ConcurrentHashMap<String, String> multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
-        StaticStorage.integrateResult.clear();
         int blockSize = expandedTerms.size() / getAvailableCores();
         for (int i = 0; i < getAvailableCores(); i++) {
             List<String> partialKeys;
