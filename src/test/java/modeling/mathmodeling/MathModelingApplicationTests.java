@@ -35,10 +35,39 @@ class MathModelingApplicationTests {
     }
 
     @Test
-    void modeling() {
+    void modeling_shell_index_1() {
         InputDTO dto = new InputDTO();
         dto.setShellIndex(1);
         dto.setD(0);
+        dto.setTheta(0);
+        dto.setR(0.05);
+        dto.setR1(20.5);
+        dto.setR2(20.5);
+        dto.setA0(0);
+        dto.setA1(5.4);
+        dto.setB0(0);
+        dto.setB1(5.4);
+        dto.setN(1);
+        dto.setE1(210000);
+        dto.setE2(210000);
+        dto.setMu12(0.3);
+        dto.setMu21(0.3);
+        dto.setH(0.09);
+        dto.setZ(-0.045);
+        dto.setK(0.8333333);
+        dto.setG(80769.23076923077);
+        dto.setQMax(3.5);
+        dto.setQStep(0.01);
+        dto.setStepCount(1);
+
+        modelingService.model(dto);
+    }
+
+    @Test
+    void modeling_shell_index_5() {
+        InputDTO dto = new InputDTO();
+        dto.setShellIndex(5);
+        dto.setD(0.02);
         dto.setTheta(0);
         dto.setR(0.05);
         dto.setR1(20.5);

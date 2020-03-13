@@ -78,7 +78,8 @@ public class MathServiceImpl implements MathService {
     @Override
     public HashMap<String, String> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables) {
         StaticStorage.derivativeResult.clear();
-        StaticStorage.alreadyComputedDerivatives.clear();
+//        StaticStorage.alreadyComputedDerivatives.clear();
+        StaticStorage.gradient.clear();
         ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
             Runnable task = () -> {

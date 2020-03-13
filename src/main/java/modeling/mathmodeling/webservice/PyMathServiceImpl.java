@@ -38,4 +38,34 @@ public class PyMathServiceImpl implements PyMathService {
         }
         return output;
     }
+
+    @Override
+    public String d(String input, String diffVar) {
+        String output = "";
+        OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(1, TimeUnit.HOURS)
+                .readTimeout(1, TimeUnit.HOURS)
+                .writeTimeout(1, TimeUnit.HOURS)
+                .build();
+        input = StringUtils.replace(input, " ", "");
+
+        RequestBody formBody = new FormBody.Builder()
+                .add("input", input)
+                .add("variable", diffVar)
+                .build();
+
+        Request request = new Request.Builder()
+                .url(PyServer.getURL() + "/d")
+                .post(formBody)
+                .build();
+
+        Call call = client.newCall(request);
+        try {
+            Response response = call.execute();
+            output = response.body().string();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return output;
+    }
 }

@@ -9,8 +9,8 @@ public class StaticStorage {
     public static ConcurrentHashMap<String, String> alreadyComputedIntegrals = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> alreadyComputedDerivatives = new ConcurrentHashMap<>();
 
-    public static ConcurrentLinkedQueue<String> integrateResult = new ConcurrentLinkedQueue();
-    public static ConcurrentLinkedQueue<String> derivativeResult = new ConcurrentLinkedQueue();
+    public static ConcurrentLinkedQueue<String> integrateResult = new ConcurrentLinkedQueue<>();
+    public static ConcurrentLinkedQueue<String> derivativeResult = new ConcurrentLinkedQueue<>();
     public static ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
 
     public static ConcurrentHashMap<Double, ArrayList<Double>> modelServiceOutput = new ConcurrentHashMap<>();

@@ -26,25 +26,25 @@ public class Controller {
 
     @GetMapping("/log")
     public LinkedHashMap<String, String> getLog() {
-        System.out.println("Get log");
+//        System.out.println("Get log");
         return logService.getLog();
     }
 
     @PostMapping("/status-reset")
     public void resetStatus() {
-        System.out.println("Reset status");
+//        System.out.println("Reset status");
         logService.stop();
     }
 
     @GetMapping("/running-status")
     public Boolean getRunningStatus() {
-        System.out.println("Get status");
+//        System.out.println("Get status");
         return logService.getRunningStatus();
     }
 
     @GetMapping("/output")
     public ConcurrentHashMap<Double, ArrayList<Double>> getModelingOutput() {
-        System.out.println("Get output");
+//        System.out.println("Get output");
         return StaticStorage.modelServiceOutput;
     }
 
@@ -56,7 +56,7 @@ public class Controller {
 
     @GetMapping("/settings")
     public SettingsDTO getSettings() {
-        System.out.println("Get settings");
+//        System.out.println("Get settings");
         return new SettingsDTO();
     }
 
@@ -68,13 +68,13 @@ public class Controller {
 
     @GetMapping("/storage/derivative")
     public ConcurrentHashMap<String, String> getStorageDerivatives() {
-        System.out.println("Get derivatives");
+//        System.out.println("Get derivatives");
         return StaticStorage.alreadyComputedDerivatives;
     }
 
     @GetMapping("/storage/integral")
     public ConcurrentHashMap<String, String> getStorageIntegrals() {
-        System.out.println("Get integrals");
+//        System.out.println("Get integrals");
         return StaticStorage.alreadyComputedIntegrals;
     }
 

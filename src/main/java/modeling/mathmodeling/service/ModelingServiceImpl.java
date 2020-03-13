@@ -45,13 +45,17 @@ public class ModelingServiceImpl implements ModelingService {
 
     private ExecutorService executorService;
 
-    private ConcurrentHashMap<String, String> derivativeTermsConcurrently(Map<String, String> terms) {
+    private void derivativeTermsConcurrently(Map<String, String> terms) {
         executorService = Executors.newWorkStealingPool();
-        ConcurrentHashMap<String, String> derivativeResult = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, String> toInterpreter = new ConcurrentHashMap<>();
         for (String key : terms.keySet()) {
             Runnable task = () -> {
-                String derivative = util.eval("ExpandAll(D(" + terms.get(key) + "))").toString();
-                derivativeResult.put(key, derivative);
+                String[] diff = terms.get(key).split(",");
+                String derivative = pyMathService.d(util.eval(diff[0]).toString(), diff[1]);
+                System.out.println(derivative);
+//                System.out.println(terms.get(key));
+                // TODO: Возможно на питоне производная будет шустрее, проверить
+//                toInterpreter.put(key, util.eval("D(" + terms.get(key) + ")").toString());
             };
             executorService.execute(task);
         }
@@ -61,7 +65,10 @@ public class ModelingServiceImpl implements ModelingService {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return derivativeResult;
+        System.out.println(toInterpreter);
+        for (String key : toInterpreter.keySet()) {
+            util.eval(key + ":= (" + toInterpreter.get(key) + ")");
+        }
     }
 
     @Override
@@ -75,8 +82,6 @@ public class ModelingServiceImpl implements ModelingService {
         // TODO: Добавить выгрузку интегралов в файл и обнулять его только при действии пользователя
 
         StaticStorage.modelServiceOutput.clear();
-        executorService = Executors.newWorkStealingPool();
-
         System.out.println(getAvailableCores() + " ядер");
         logService.setConsoleOutput(true);
 
@@ -88,6 +93,7 @@ public class ModelingServiceImpl implements ModelingService {
         r2 = input.getR2();
         theta = input.getTheta();
         d = input.getD();
+        int stepCount = input.getStepCount();
         double qMax = input.getQMax();
         double qStep = input.getQStep();
         Double mu12 = input.getMu12();
@@ -168,14 +174,8 @@ public class ModelingServiceImpl implements ModelingService {
                 "0.5 * Qx * PsiX - 0.5 * QX * Theta1 "
                 + "+ 0.5 * QY * PsiY - 0.5 * QY * Theta2 - q * W * A * B";
 
-        Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
-
-        for (int i = 1; i <= n; i++) {
-            Es = StringUtils.replace(Es, "(" + i + ".0)", "(" + i + ")");
-        }
-
         logService.debug("Считаем производные");
-        ConcurrentHashMap<String, String> computedD = new ConcurrentHashMap<>();
+        HashMap<String, String> computedD = new HashMap<>();
         computedD.put("dwx", "W, xx");
         computedD.put("dwy", "W, yy");
         computedD.put("dux", "U, xx");
@@ -190,18 +190,30 @@ public class ModelingServiceImpl implements ModelingService {
         computedD.put("dpsixdy", "PsiX, yy");
         computedD.put("dpsiydx", "PsiY, xx");
         computedD.put("dpsiydy", "PsiY, yy");
-        computedD = derivativeTermsConcurrently(computedD);
+        derivativeTermsConcurrently(computedD);
 
-        for (String d : computedD.keySet()) {
-//            util.eval(d + ":=" + computedD.get(d));
-            Es = StringUtils.replace(Es, d, "(" + computedD.get(d) + ")");
+        Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
+
+//        System.out.println(Es);
+//        System.exit(0);
+
+/*
+        for (int i = 1; i <= n; i++) {
+            Es = StringUtils.replace(Es, "(" + i + ".0)", "(" + i + ")");
         }
+*/
 
+        logService.debug("Раскрытие степеней");
+        Es = parseService.expandAllDegrees(Es);
         logService.debug("Отправляем запрос");
         Es = pyMathService.expand(Es);
         logService.debug("Замена ** и пробела");
+        // TODO: StringUtils при n >= 5 не справляются
         Es = StringUtils.replace(Es, "**", "^");
         Es = StringUtils.replace(Es, " ", "");
+
+        System.out.println(Es);
+        System.exit(0);
 
         logService.debug("Разбиваем на terms");
         HashMap<String, String> terms = parseService.getTermsFromString(Es);
@@ -209,12 +221,13 @@ public class ModelingServiceImpl implements ModelingService {
         logService.debug("Считаем интеграл в многопоточке");
         String afterIntegrate = mathService.partialDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
 //        System.exit(0);
+        afterIntegrate = StringUtils.replace(afterIntegrate, "\n", "");
         logService.debug("Разбиваем на terms");
         terms = parseService.getTermsFromString(afterIntegrate);
         logService.debug("Считаем градиент");
         HashMap<String, String> gradient = mathService.multithreadingGradient(util, terms, coefficients);
-        for(String key:gradient.keySet()) {
-            System.out.println(key + " : " + util.eval(gradient.get(key)).toString().replace("\n",""));
+        for (String key : gradient.keySet()) {
+            System.out.println(key + " : " + util.eval(gradient.get(key)).toString().replace("\n", ""));
         }
 //        System.exit(0);
         logService.debug("Считаем Гесса");
@@ -230,15 +243,20 @@ public class ModelingServiceImpl implements ModelingService {
         // Newton's method
 //        logService.next();
         logService.debug("Метод Ньютона");
-        newtonMethod(a, b, coefficientsArray, qMax, qStep, gradient, hessian);
-        logService.next();
+        try {
+            newtonMethod(a, b, coefficientsArray, qMax, qStep, stepCount, gradient, hessian);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Метод Ньютона не отработал");
+        }
+//        logService.next();
         logService.next();
         logService.stop();
     }
 
     @Override
-    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, HashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) {
-
+    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) throws Exception {
+        System.out.println(stepCount + " повторений");
         // Searching vector
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
         double[] computedGradient = new double[coefficients.length];
@@ -257,11 +275,11 @@ public class ModelingServiceImpl implements ModelingService {
         long qTime;
 
         while (q < qMax) {
-            System.out.println("q:" + q);
+//            System.out.println("q:" + q);
             Double max = 10.0;
             int zz = 0;
             firstStep = true;
-            while (zz < 1) {
+            while (zz < stepCount) {
                 startTime = System.nanoTime();
                 qTime = System.nanoTime();
                 zz++;
@@ -276,7 +294,7 @@ public class ModelingServiceImpl implements ModelingService {
                     computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(value).toString());
                     currentGradientIndex++;
                 }
-                System.out.println("Подстановка градиента:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Подстановка градиента:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 currentHessianI = 0;
                 startTime = System.nanoTime();
                 for (String vi : coefficients) {
@@ -293,7 +311,7 @@ public class ModelingServiceImpl implements ModelingService {
                     }
                     currentHessianI++;
                 }
-                System.out.println("Подстановка Гессе:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
+//                System.out.println("Подстановка Гессе:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
                 // xi+1 = xi - H(xi)^-1 * G(xi);
                 firstMatrix = firstMatrix.invert();
@@ -318,7 +336,7 @@ public class ModelingServiceImpl implements ModelingService {
                     t++;
                 }
                 firstStep = false;
-                System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
+//                System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
             }
             String Woutput = util.eval("W").toString();
             String Woutput0 = StringUtils.replace(Woutput, "xx", String.valueOf(a / 2));
@@ -417,7 +435,7 @@ public class ModelingServiceImpl implements ModelingService {
                 ky = "1 / (xx * " + Math.tan(theta) + ")";
                 break;
             case 5:
-                ky = "Sin(xx) / ( " + d + "+ r * Sin(xx) )";
+                ky = "Sin(xx) / (" + d + "+ r * Sin(xx))";
                 break;
         }
         util.eval("ky := " + ky);
