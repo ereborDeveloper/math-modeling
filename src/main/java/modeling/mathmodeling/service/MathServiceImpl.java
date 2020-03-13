@@ -98,7 +98,6 @@ public class MathServiceImpl implements MathService {
     @Override
     public String partialDerivative(ExprEvaluator util, HashMap<String, String> terms, String variable) {
         String output = "";
-        Config.EXPLICIT_TIMES_OPERATOR = true;
         if (terms.isEmpty()) {
             return "+0.0";
         }
@@ -137,16 +136,16 @@ public class MathServiceImpl implements MathService {
                 continue;
             }
             String resultStr = String.join("*", result);
-            if(StringUtils.contains(resultStr, "E-"))
-            {
-                System.out.println(resultStr);
-            }
             String sign = terms.get(term);
             String parsedResult;
             if (!factors.isEmpty()) {
                 parsedResult = String.join("*", factors) + "*" + resultStr;
             } else {
                 parsedResult = String.join("*", result);
+            }
+            if(StringUtils.contains(parsedResult, "E-"))
+            {
+                continue;
             }
             if (parsedResult != "") {
                 output += sign + parsedResult;
@@ -223,8 +222,8 @@ public class MathServiceImpl implements MathService {
             String resultStr = String.join("*", result);
             if(StringUtils.contains(resultStr, "E-"))
             {
-                System.out.println(resultStr);
-//                continue;
+//                System.out.println(resultStr);
+                continue;
             }
 
             String sign = expandedTerms.get(term);

@@ -117,4 +117,13 @@ class MathServiceImplTest {
         System.out.println(out2);
 
     }
+
+    @Test
+    void diff_when_E_then_zero()
+    {
+        String in = "2.0234*u11*2.0E-16";
+        assertEquals("+0.0", mathService.partialDerivative(util, parseService.getTermsFromString(in), "u11"));
+    }
+
+
 }

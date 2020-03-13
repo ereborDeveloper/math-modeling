@@ -180,10 +180,6 @@ public class ModelingServiceImpl implements ModelingService {
         Es = parseService.expandAllDegrees(Es);
         logService.debug("Отправляем запрос");
         Es = pyMathService.expand(Es);
-        logService.debug("Замена ** и пробела");
-        // TODO: StringUtils при n >= 5 не справляются
-        Es = StringUtils.replace(Es, "**", "^");
-        Es = StringUtils.replace(Es, " ", "");
 
         logService.debug("Разбиваем на terms");
         HashMap<String, String> terms = parseService.getTermsFromString(Es);
