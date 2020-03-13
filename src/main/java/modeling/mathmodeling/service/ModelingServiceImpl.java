@@ -45,7 +45,7 @@ public class ModelingServiceImpl implements ModelingService {
 
     private ExecutorService executorService;
 
-    private void derivativeTermsConcurrently(Map<String, String> terms) {
+    /*private void derivativeTermsConcurrently(Map<String, String> terms) {
         executorService = Executors.newWorkStealingPool();
         ConcurrentHashMap<String, String> toInterpreter = new ConcurrentHashMap<>();
         for (String key : terms.keySet()) {
@@ -69,7 +69,7 @@ public class ModelingServiceImpl implements ModelingService {
         for (String key : toInterpreter.keySet()) {
             util.eval(key + ":= (" + toInterpreter.get(key) + ")");
         }
-    }
+    }*/
 
     @Override
     public void model(InputDTO input) {
@@ -135,21 +135,21 @@ public class ModelingServiceImpl implements ModelingService {
 
         defineApprox(a, b);
 
-        util.eval("Theta1 := -(DWX / A + kx * U)");
-        util.eval("Theta2 := -(DWY / B + ky * V)");
+        util.eval("Theta1 := -(D(W, xx) / A + kx * U)");
+        util.eval("Theta2 := -(D(W, yy) / B + ky * V)");
 
         // Деформация изменения
-        util.eval("eX := (DUX / A + DAY * V / (A * B) - kx * W + 0.5 * (Theta1 * Theta1))");
-        util.eval("eY := (DVY / B + DBX * U / (A * B) - ky * W + 0.5 * (Theta2 * Theta2))");
+        util.eval("eX := (D(U, xx) / A + D(A, yy) * V / (A * B) - kx * W + 0.5 * (Theta1 * Theta1))");
+        util.eval("eY := (D(V, yy) / B + D(B, xx) * U / (A * B) - ky * W + 0.5 * (Theta2 * Theta2))");
 
         // Кривизна кручения
-        util.eval("gammaXY := (DVX / A + DUY / B - DAY * U / (A * B) - DBX * V / (A * B) + Theta1 * Theta2)");
+        util.eval("gammaXY := (D(V, xx) / A + D(U, yy) / B - D(A, yy) * U / (A * B) - D(B, xx) * V / (A * B) + Theta1 * Theta2)");
         util.eval("gammaXZ := (k * f(z) * (PsiX - Theta1))");
         util.eval("gammaYZ := (k * f(z) * (PsiY - Theta2))");
 
-        util.eval("Chi1 := (DPsiXdX / A + DAY * PsiY / (A * B))");
-        util.eval("Chi2 := (DPsiYdY / B + DBX * PsiX / (A * B))");
-        util.eval("Chi12 := 0.5 * (DPsiYdX / A  + DPsiXdY / B - (DAY * PsiX + DBX * PsiY)/(A * B))");
+        util.eval("Chi1 := (D(PsiX, xx) / A + D(A, yy) * PsiY / (A * B))");
+        util.eval("Chi2 := (D(PsiY, yy) / B + D(B, xx) * PsiX / (A * B))");
+        util.eval("Chi12 := 0.5 * (D(PsiY, xx) / A  + D(PsiX, yy) / B - (D(A, yy) * PsiX + D(B, xx) * PsiY)/(A * B))");
 
 //        Усилия и моменты
         util.eval("MX := (" + E1 * Math.pow(h, 3) / (12 * (1 - mu12 * mu21)) + " * (Chi1 + mu21 * Chi2))");
@@ -190,7 +190,7 @@ public class ModelingServiceImpl implements ModelingService {
         computedD.put("dpsixdy", "PsiX, yy");
         computedD.put("dpsiydx", "PsiY, xx");
         computedD.put("dpsiydy", "PsiY, yy");
-        derivativeTermsConcurrently(computedD);
+//        derivativeTermsConcurrently(computedD);
 
         Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
 
@@ -213,7 +213,7 @@ public class ModelingServiceImpl implements ModelingService {
         Es = StringUtils.replace(Es, " ", "");
 
         System.out.println(Es);
-        System.exit(0);
+//        System.exit(0);
 
         logService.debug("Разбиваем на terms");
         HashMap<String, String> terms = parseService.getTermsFromString(Es);
