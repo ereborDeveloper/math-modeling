@@ -8,6 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public interface ModelingService {
     void model(InputDTO input);
 
-    void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) throws Exception;
+    void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, String> gradient, HashMap<String, String> hessian);
 
 }

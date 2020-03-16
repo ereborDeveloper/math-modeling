@@ -43,34 +43,6 @@ public class ModelingServiceImpl implements ModelingService {
     private String[] coefficientsArray;
     private LinkedList<String> coefficients;
 
-    private ExecutorService executorService;
-
-    /*private void derivativeTermsConcurrently(Map<String, String> terms) {
-        executorService = Executors.newWorkStealingPool();
-        ConcurrentHashMap<String, String> toInterpreter = new ConcurrentHashMap<>();
-        for (String key : terms.keySet()) {
-            Runnable task = () -> {
-                String[] diff = terms.get(key).split(",");
-                String derivative = pyMathService.d(util.eval(diff[0]).toString(), diff[1]);
-                System.out.println(derivative);
-//                System.out.println(terms.get(key));
-                // TODO: Возможно на питоне производная будет шустрее, проверить
-//                toInterpreter.put(key, util.eval("D(" + terms.get(key) + ")").toString());
-            };
-            executorService.execute(task);
-        }
-        executorService.shutdown();
-        try {
-            executorService.awaitTermination(60, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        System.out.println(toInterpreter);
-        for (String key : toInterpreter.keySet()) {
-            util.eval(key + ":= (" + toInterpreter.get(key) + ")");
-        }
-    }*/
-
     @Override
     public void model(InputDTO input) {
         logService.start();
@@ -197,9 +169,8 @@ public class ModelingServiceImpl implements ModelingService {
         for (String key : gradient.keySet()) {
             System.out.println(key + " : " + util.eval(gradient.get(key)).toString().replace("\n", ""));
         }
-//        System.exit(0);
         logService.debug("Считаем Гесса");
-        ConcurrentHashMap<String, String> hessian = new ConcurrentHashMap<>();
+        HashMap<String, String> hessian = new HashMap<>();
         for (String key : gradient.keySet()) {
             terms = parseService.getTermsFromString(gradient.get(key));
             HashMap<String, String> grad = mathService.multithreadingGradient(util, terms, coefficients);
@@ -208,8 +179,7 @@ public class ModelingServiceImpl implements ModelingService {
             });
         }
 
-        // Newton's method
-//        logService.next();
+
         logService.debug("Метод Ньютона");
         try {
             newtonMethod(a, b, coefficientsArray, qMax, qStep, stepCount, gradient, hessian);
@@ -217,13 +187,12 @@ public class ModelingServiceImpl implements ModelingService {
             e.printStackTrace();
             System.out.println("Метод Ньютона не отработал");
         }
-//        logService.next();
         logService.next();
         logService.stop();
     }
 
     @Override
-    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, String> gradient, ConcurrentHashMap<String, String> hessian) throws Exception {
+    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, String> gradient, HashMap<String, String> hessian) {
         System.out.println(stepCount + " повторений");
         // Searching vector
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
