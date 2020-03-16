@@ -2,6 +2,7 @@ package modeling.mathmodeling.service;
 
 import modeling.mathmodeling.storage.StaticStorage;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,9 +28,9 @@ public class MathMatrixServiceImpl implements MathMatrixService {
 
 
     @Override
-    public HashMap<String, String> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables) {
-        ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
-/*        ExecutorService executorService = Executors.newWorkStealingPool();
+    public HashMap<String, HashMap<String, Double>> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables) {
+        ConcurrentHashMap<String, HashMap<String, Double>> gradient = new ConcurrentHashMap<>();
+        ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
             Runnable task = () -> {
                 gradient.put(variable, partialDerivative(util, expandedTerms, variable));
@@ -41,7 +42,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             executorService.awaitTermination(60, TimeUnit.SECONDS);
         } catch (Exception e) {
 
-        }*/
+        }
         return new HashMap<>(gradient);
     }
 
@@ -59,41 +60,64 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
             ArrayList<String> factorsToDerivative = new ArrayList<>();
             ArrayList<String> numericFactors = new ArrayList<>();
-            double numeric = 1.0;
 
-            for (String factor : factors) {
-                if (factor.contains(variable)) {
-                    factorsToDerivative.add(factor);
-                } else if (StringUtils.isNumeric(factor)) {
-                    numeric *= Double.parseDouble(factor);
-                    numericFactors.add(factor);
-                }
+            String sign = terms.get(term);
+            double numeric = Double.parseDouble(sign + "1");
+
+            filterFactorsByVariable(variable, factors, factorsToDerivative, numericFactors);
+
+            for (String factor : numericFactors) {
+                numeric *= Double.parseDouble(factor);
             }
-            // Удаляем все множители, которые не зависят от переменной
-            factors.removeAll(factorsToDerivative);
-            factors.removeAll(numericFactors);
-
-            ArrayList<String> result = new ArrayList<>();
-            String toDerivate = String.join("*", factorsToDerivative);
-            String writeableResult = util.eval("D(" + toDerivate + ", " + variable + ")").toString();
-            writeableResult = StringUtils.replace(writeableResult, "\n", "");
-            result.add(writeableResult);
-            if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
+            if (numeric == 0.0) {
                 continue;
             }
 
+            String toDerivate = String.join("*", factorsToDerivative);
+            String writeableResult = util.eval("D(" + toDerivate + ", " + variable + ")").toString();
+            writeableResult = StringUtils.replace(writeableResult, "\n", "");
 
-            String resultStr = String.join("*", result);
-            String sign = terms.get(term);
-            String parsedResult;
-            String var = String.join("*", factors);
-            if (!factors.isEmpty()) {
-                output.put(var, 0.0);
-            } else {
-                parsedResult = String.join("*", result);
+            ArrayList<String> factorsInDiffResult = parseService.splitAndSkipInsideBrackets(writeableResult, '*');
+            filterFactorsByVariable(variable, factorsInDiffResult, factorsToDerivative, numericFactors);
+
+            factors.addAll(factorsInDiffResult);
+            factors.addAll(factorsToDerivative);
+
+            for (String factor : numericFactors) {
+                numeric *= Double.parseDouble(factor);
+            }
+            if (numeric == 0.0) {
+                continue;
             }
 
+            String outputKey = "";
+            if (factors.isEmpty()) {
+                outputKey = "number";
+            } else {
+                Collections.sort(factors);
+                outputKey = String.join("*", factors);
+            }
+            Double currentValue = output.get(outputKey);
+            if (currentValue != null) {
+                output.replace(outputKey, output.get(outputKey) + numeric);
+            } else {
+                output.put(outputKey, numeric);
+            }
         }
         return output;
+    }
+
+    public void filterFactorsByVariable(String variable, ArrayList<String> factors, ArrayList<String> factorsToDerivative, ArrayList<String> numericFactors) {
+        factorsToDerivative.clear();
+        numericFactors.clear();
+        for (String factor : factors) {
+            if (factor.contains(variable)) {
+                factorsToDerivative.add(factor);
+            } else if (NumberUtils.isCreatable(factor)) {
+                numericFactors.add(factor);
+            }
+        }
+        factors.removeAll(factorsToDerivative);
+        factors.removeAll(numericFactors);
     }
 }

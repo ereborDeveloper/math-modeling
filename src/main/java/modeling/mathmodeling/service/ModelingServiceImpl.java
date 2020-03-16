@@ -190,6 +190,9 @@ public class ModelingServiceImpl implements ModelingService {
         logService.debug("Разбиваем на terms");
         terms = parseService.getTermsFromString(afterIntegrate);
         logService.debug("Считаем градиент");
+
+        System.out.println(afterIntegrate);
+
         HashMap<String, String> gradient = mathService.multithreadingGradient(util, terms, coefficients);
         for (String key : gradient.keySet()) {
             System.out.println(key + " : " + util.eval(gradient.get(key)).toString().replace("\n", ""));
