@@ -24,9 +24,12 @@ class MathMatrixServiceImplTest {
     ParseService parseService;
 
     @Test
-    void partialDoubleIntegrate() {
-        String in = "u*sin(20*xx) + w^2*cos(20*yy)";
-        String sign = "-";
-//        assertEquals(new HashMap<>(), mathMatrixService.partialDoubleIntegrate(util, in, sign, "xx", 0, 5, "yy", 0, 5));
+    void partialDerivative() {
+        String diffVariable = "u11";
+        String in = "2*u11*u12 + 4*v11 - 7*w11 + 1*u11*u12 + 7*u11 - 3*u11";
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("u12", +3.0);
+        expected.put("number", 4.0);
+        assertEquals(expected, mathMatrixService.partialDerivative(util, parseService.getTermsFromString(in), diffVariable));
     }
 }

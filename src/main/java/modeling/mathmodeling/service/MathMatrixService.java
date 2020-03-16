@@ -1,12 +1,14 @@
 package modeling.mathmodeling.service;
 
+import org.matheclipse.core.eval.ExprEvaluator;
+
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedList;
 
 
 public interface MathMatrixService {
-    ConcurrentHashMap<String, String> multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY);
+    HashMap<String, String> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables);
 
-    ConcurrentHashMap<String, String> partialDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY);
+    HashMap <String, Double> partialDerivative(ExprEvaluator util, HashMap<String, String> expandedTerms, String variable);
 
 }

@@ -116,35 +116,21 @@ public class MathServiceImpl implements MathService {
             // Удаляем все множители, которые не зависят от переменной
             factors.removeAll(factorsToDerivative);
 
-            ArrayList<String> result = new ArrayList<>();
-            if (!factorsToDerivative.isEmpty()) {
-                String toDerivate = String.join("*", factorsToDerivative);
-                if (!StaticStorage.alreadyComputedDerivatives.containsKey(toDerivate)) {
-                    String writeableResult = "";
-                    writeableResult += util.eval("D(" + toDerivate + ", " + variable + ")").toString();
-                    writeableResult = writeableResult.replace("\n", "");
-                    StaticStorage.alreadyComputedDerivatives.put(toDerivate, writeableResult);
-                    result.add(writeableResult);
-                    if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
-                        continue;
-                    }
-                } else {
-                    result.add(StaticStorage.alreadyComputedDerivatives.get(toDerivate));
-                }
-            } else {
-                // Если не зависит от переменной, пропускаем
+            String toDerivate = String.join("*", factorsToDerivative);
+            String writeableResult= util.eval("D(" + toDerivate + ", " + variable + ")").toString();
+            writeableResult = StringUtils.replace(writeableResult,"\n", "");
+            if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                 continue;
             }
-            String resultStr = String.join("*", result);
+
             String sign = terms.get(term);
             String parsedResult;
             if (!factors.isEmpty()) {
-                parsedResult = String.join("*", factors) + "*" + resultStr;
+                parsedResult = String.join("*", factors) + "*" + writeableResult;
             } else {
-                parsedResult = String.join("*", result);
+                parsedResult = String.join("*", writeableResult);
             }
-            if(StringUtils.contains(parsedResult, "E-"))
-            {
+            if (StringUtils.contains(parsedResult, "E-")) {
                 continue;
             }
             if (parsedResult != "") {
@@ -220,8 +206,7 @@ public class MathServiceImpl implements MathService {
             }
 
             String resultStr = String.join("*", result);
-            if(StringUtils.contains(resultStr, "E-"))
-            {
+            if (StringUtils.contains(resultStr, "E-")) {
 //                System.out.println(resultStr);
                 continue;
             }

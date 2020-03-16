@@ -4,7 +4,6 @@ import org.matheclipse.core.eval.ExprEvaluator;
 
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.concurrent.ConcurrentHashMap;
 
 public interface MathService {
 

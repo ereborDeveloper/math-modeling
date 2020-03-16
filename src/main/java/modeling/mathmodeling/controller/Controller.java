@@ -66,12 +66,6 @@ public class Controller {
         Settings.setSettings(dto);
     }
 
-    @GetMapping("/storage/derivative")
-    public ConcurrentHashMap<String, String> getStorageDerivatives() {
-//        System.out.println("Get derivatives");
-        return StaticStorage.alreadyComputedDerivatives;
-    }
-
     @GetMapping("/storage/integral")
     public ConcurrentHashMap<String, String> getStorageIntegrals() {
 //        System.out.println("Get integrals");

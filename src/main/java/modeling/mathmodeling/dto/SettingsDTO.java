@@ -10,14 +10,12 @@ import modeling.mathmodeling.storage.Settings;
 @NoArgsConstructor
 public class SettingsDTO {
     private int availableCores;
-    private boolean isDerivativeCached;
     private boolean isIntegrateCached;
 
     public static SettingsDTO makeDTO()
     {
         SettingsDTO dto = new SettingsDTO();
         dto.setAvailableCores(Settings.getAvailableCores());
-        dto.setDerivativeCached(Settings.getIsDerivativeCached());
         dto.setIntegrateCached(Settings.getIsIntegrateCached());
         return dto;
     }

@@ -45,7 +45,6 @@ public class MathModelingApplication {
 	public void doAfterStartup() {
         PyServer.getInstance();
         Settings.setAvailableCores(Runtime.getRuntime().availableProcessors());
-        Settings.setIsDerivativeCached(true);
         Settings.setIsIntegrateCached(true);
         logService.initialize();
 	}
