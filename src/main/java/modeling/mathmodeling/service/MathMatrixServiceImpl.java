@@ -1,20 +1,14 @@
 package modeling.mathmodeling.service;
 
-import modeling.mathmodeling.storage.StaticStorage;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
 @Service
 public class MathMatrixServiceImpl implements MathMatrixService {
@@ -28,12 +22,13 @@ public class MathMatrixServiceImpl implements MathMatrixService {
 
 
     @Override
-    public HashMap<String, HashMap<String, Double>> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables) {
-        ConcurrentHashMap<String, HashMap<String, Double>> gradient = new ConcurrentHashMap<>();
+    public HashMap<String, HashMap<String, Double>> multithreadingGradient(HashMap<String, String> expandedTerms, LinkedList<String> variables) {
+        HashMap<String, HashMap<String, Double>> gradient = new HashMap<>();
         ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
             Runnable task = () -> {
-                gradient.put(variable, partialDerivative(util, expandedTerms, variable));
+                ExprEvaluator ut = new ExprEvaluator(true, 500000);
+                gradient.put(variable, partialDerivative(ut, expandedTerms, variable));
             };
             executorService.execute(task);
         }
@@ -41,9 +36,9 @@ public class MathMatrixServiceImpl implements MathMatrixService {
         try {
             executorService.awaitTermination(60, TimeUnit.SECONDS);
         } catch (Exception e) {
-
+            e.printStackTrace();
         }
-        return new HashMap<>(gradient);
+        return gradient;
     }
 
     @Override
@@ -73,8 +68,8 @@ public class MathMatrixServiceImpl implements MathMatrixService {
                 continue;
             }
 
-            String toDerivate = String.join("*", factorsToDerivative);
-            String writeableResult = util.eval("D(" + toDerivate + ", " + variable + ")").toString();
+            String toDiff = String.join("*", factorsToDerivative);
+            String writeableResult = util.eval("D(" + toDiff + ", " + variable + ")").toString();
             writeableResult = StringUtils.replace(writeableResult, "\n", "");
 
             ArrayList<String> factorsInDiffResult = parseService.splitAndSkipInsideBrackets(writeableResult, '*');
@@ -102,6 +97,43 @@ public class MathMatrixServiceImpl implements MathMatrixService {
                 output.replace(outputKey, output.get(outputKey) + numeric);
             } else {
                 output.put(outputKey, numeric);
+            }
+        }
+        return output;
+    }
+
+    @Override
+    public HashMap<String, Double> matrixDerivative(ExprEvaluator util, HashMap<String, Double> terms, String variable) {
+        HashMap<String, Double> output = new HashMap<>();
+        for (String term : terms.keySet()) {
+            if (!term.contains(variable)) {
+                continue;
+            }
+            String termAfterDiff = util.eval("D(" + term + ", " + variable + ")").toString();
+            ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(termAfterDiff, '*');
+            ArrayList<String> factorsToDerivative = new ArrayList<>();
+            ArrayList<String> numericFactors = new ArrayList<>();
+            double numericValue = terms.get(term);
+            filterFactorsByVariable(variable, factors, factorsToDerivative, numericFactors);
+            for (String factor : numericFactors) {
+                numericValue *= Double.parseDouble(factor);
+            }
+            if (numericValue == 0.0) {
+                continue;
+            }
+            factors.addAll(factorsToDerivative);
+            String outputKey = "";
+            if (factors.isEmpty()) {
+                outputKey = "number";
+            } else {
+                Collections.sort(factors);
+                outputKey = String.join("*", factors);
+            }
+            Double currentValue = output.get(outputKey);
+            if (currentValue != null) {
+                output.replace(outputKey, output.get(outputKey) + numericValue);
+            } else {
+                output.put(outputKey, numericValue);
             }
         }
         return output;

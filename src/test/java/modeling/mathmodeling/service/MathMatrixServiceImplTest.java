@@ -79,4 +79,21 @@ class MathMatrixServiceImplTest {
     void multithreadingGradient() {
 
     }
+
+    @Test
+    void matrixDerivative() {
+        HashMap<String, Double> in = new HashMap<>();
+        in.put("v12^2", 1567.3028740822554);
+        in.put("psiy12", 44484.00161837733);
+        in.put("v11", -1097.1120118575789);
+        in.put("psix12", 67.45257757869504);
+        in.put("w12", 77074.74360580202);
+        in.put("v12", 77074.74360580202);
+
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("v12", 3134.6057481645107);
+        expected.put("number", 77074.74360580202);
+
+        assertEquals(expected, mathMatrixService.matrixDerivative(util, in, "v12"));
+    }
 }

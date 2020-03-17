@@ -8,7 +8,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.ejml.simple.SimpleMatrix;
 import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -19,16 +18,19 @@ import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 @Service
 public class ModelingServiceImpl implements ModelingService {
 
-    @Autowired
+    final
     PyMathService pyMathService;
 
-    @Autowired
+    final
     ParseService parseService;
 
-    @Autowired
+    final
     MathService mathService;
 
-    @Autowired
+    final
+    MathMatrixService mathMatrixService;
+
+    final
     LogService logService;
 
     private ExprEvaluator util = new ExprEvaluator(true, 500000);
@@ -42,6 +44,14 @@ public class ModelingServiceImpl implements ModelingService {
     private int N;
     private String[] coefficientsArray;
     private LinkedList<String> coefficients;
+
+    public ModelingServiceImpl(PyMathService pyMathService, ParseService parseService, MathService mathService, MathMatrixService mathMatrixService, LogService logService) {
+        this.pyMathService = pyMathService;
+        this.parseService = parseService;
+        this.mathService = mathService;
+        this.mathMatrixService = mathMatrixService;
+        this.logService = logService;
+    }
 
     @Override
     public void model(InputDTO input) {
@@ -163,26 +173,23 @@ public class ModelingServiceImpl implements ModelingService {
         terms = parseService.getTermsFromString(afterIntegrate);
         logService.debug("Считаем градиент");
 
-        System.out.println(afterIntegrate);
-
-        HashMap<String, String> gradient = mathService.multithreadingGradient(util, terms, coefficients);
-        for (String key : gradient.keySet()) {
-            System.out.println(key + " : " + util.eval(gradient.get(key)).toString().replace("\n", ""));
-        }
+//        System.out.println(afterIntegrate);
+        HashMap<String, HashMap<String, Double>> gradient = mathMatrixService.multithreadingGradient(terms, coefficients);
         logService.debug("Считаем Гесса");
-        HashMap<String, String> hessian = new HashMap<>();
-        for (String key : gradient.keySet()) {
-            terms = parseService.getTermsFromString(gradient.get(key));
-            HashMap<String, String> grad = mathService.multithreadingGradient(util, terms, coefficients);
-            grad.forEach((kk, vv) -> {
-                hessian.put(key + "|" + kk, util.eval(vv).toString());
-            });
+        HashMap<String, HashMap<String, Double>> hessian = new HashMap<>();
+        // TODO: Распараллелить
+        for (int i = 0; i < coefficientsArray.length; i++) {
+            String firstDiffVariable = coefficientsArray[i];
+            for (int j = 0; j <= i; j++) {
+                String secondDiffVar = coefficientsArray[j];
+                hessian.put(firstDiffVariable + "|" + secondDiffVar, mathMatrixService.matrixDerivative(util, gradient.get(firstDiffVariable), secondDiffVar));
+            }
         }
-
-
         logService.debug("Метод Ньютона");
+        String WOutput = util.eval("W").toString();
+        System.out.println(WOutput);
         try {
-            newtonMethod(a, b, coefficientsArray, qMax, qStep, stepCount, gradient, hessian);
+            newtonMethodMatrix(WOutput, a, b, coefficientsArray, qMax, qStep, stepCount, gradient, hessian);
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Метод Ньютона не отработал");
@@ -192,7 +199,7 @@ public class ModelingServiceImpl implements ModelingService {
     }
 
     @Override
-    public void newtonMethod(Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, String> gradient, HashMap<String, String> hessian) {
+    public void newtonMethod(String w, Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, String> gradient, HashMap<String, String> hessian) {
         System.out.println(stepCount + " повторений");
         // Searching vector
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
@@ -202,7 +209,7 @@ public class ModelingServiceImpl implements ModelingService {
             grail.put(coef, 0.0);
         }
         double q = 0.0;
-        Double eps = 0.0000001;
+        double eps = 0.0000001;
         int currentGradientIndex;
         int currentHessianI;
         int currentHessianJ;
@@ -211,9 +218,9 @@ public class ModelingServiceImpl implements ModelingService {
         long startTime;
         long qTime;
 
+
         while (q < qMax) {
-//            System.out.println("q:" + q);
-            Double max = 10.0;
+            double max = 10.0;
             int zz = 0;
             firstStep = true;
             while (zz < stepCount) {
@@ -231,6 +238,8 @@ public class ModelingServiceImpl implements ModelingService {
                     computedGradient[currentGradientIndex] = Double.parseDouble(util.eval(value).toString());
                     currentGradientIndex++;
                 }
+                System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
+
 //                System.out.println("Подстановка градиента:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 currentHessianI = 0;
                 startTime = System.nanoTime();
@@ -248,6 +257,7 @@ public class ModelingServiceImpl implements ModelingService {
                     }
                     currentHessianI++;
                 }
+
 //                System.out.println("Подстановка Гессе:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTime));
                 SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
                 // xi+1 = xi - H(xi)^-1 * G(xi);
@@ -273,15 +283,11 @@ public class ModelingServiceImpl implements ModelingService {
                     t++;
                 }
                 firstStep = false;
-//                System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
             }
-            String Woutput = util.eval("W").toString();
-            String Woutput0 = StringUtils.replace(Woutput, "xx", String.valueOf(a / 2));
+            String Woutput0 = StringUtils.replace(w, "xx", String.valueOf(a / 2));
             Woutput0 = StringUtils.replace(Woutput0, "yy", String.valueOf(b / 2));
-            String Woutput1 = StringUtils.replace(Woutput, "xx", String.valueOf(a / 4));
+            String Woutput1 = StringUtils.replace(w, "xx", String.valueOf(a / 4));
             Woutput1 = StringUtils.replace(Woutput1, "yy", String.valueOf(b / 4));
-            Woutput0 = util.eval(Woutput0).toString();
-            Woutput1 = util.eval(Woutput1).toString();
             for (String key : grail.keySet()) {
                 Woutput0 = StringUtils.replace(Woutput0, key, String.valueOf(grail.get(key)));
                 Woutput1 = StringUtils.replace(Woutput1, key, String.valueOf(grail.get(key)));
@@ -301,6 +307,123 @@ public class ModelingServiceImpl implements ModelingService {
             StaticStorage.modelServiceOutput.put(q, wOut);
             q += qStep;
         }
+    }
+
+    @Override
+    public void newtonMethodMatrix(String w, Double a, Double b, String[] coefficients, double qMax, double qStep, int stepCount, HashMap<String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian) {
+        LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
+        double[] computedGradient = new double[coefficients.length];
+        double[][] computedHessian = new double[coefficients.length][coefficients.length];
+        for (String coef : coefficients) {
+            grail.put(coef, 0.0);
+        }
+        double q = 0.0;
+        double eps = 0.00000001;
+        boolean firstStep;
+
+        while (q < qMax) {
+            long qTime = System.nanoTime();
+            double max = 1.0;
+            int zz = 0;
+            firstStep = true;
+            while (zz < stepCount) {
+                zz++;
+                for (int i = 0; i < coefficients.length; i++) {
+                    HashMap<String, Double> row = gradient.get(coefficients[i]);
+                    for (String term : row.keySet()) {
+                        computedGradient[i] += computeTerm(term, row, q, grail);
+                    }
+                }
+                for (int i = 0; i < coefficients.length; i++) {
+                    String firstDiffVar = coefficients[i];
+                    for (int j = 0; j <= i; j++) {
+                        String secondDiffVar = coefficients[j];
+                        HashMap<String, Double> row = hessian.get(firstDiffVar + "|" + secondDiffVar);
+                        for (String term : row.keySet()) {
+                            computedHessian[i][j] += computeTerm(term, row, q, grail);
+                            computedHessian[j][i] = computedHessian[i][j];
+                        }
+                    }
+                }
+
+                SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
+                // xi+1 = xi - H(xi)^-1 * G(xi);
+                firstMatrix = firstMatrix.invert();
+
+                SimpleMatrix secondMatrix = new SimpleMatrix(new double[][]{computedGradient});
+                double[] multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
+
+                int t = 0;
+                for (String key : grail.keySet()) {
+                    Double temp = Math.abs(grail.get(key) - multiply[t]);
+                    if (temp < max) {
+                        max = temp;
+                    }
+                    t++;
+                }
+                if (max < eps && !firstStep) {
+                    break;
+                }
+                t = 0;
+                for (String key : grail.keySet()) {
+                    grail.replace(key, grail.get(key) - multiply[t]);
+                    t++;
+                }
+                firstStep = false;
+            }
+            System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
+
+            String Woutput0 = StringUtils.replace(w, "xx", String.valueOf(a / 2));
+            Woutput0 = StringUtils.replace(Woutput0, "yy", String.valueOf(b / 2));
+            String Woutput1 = StringUtils.replace(w, "xx", String.valueOf(a / 4));
+            Woutput1 = StringUtils.replace(Woutput1, "yy", String.valueOf(b / 4));
+            for (String key : grail.keySet()) {
+                Woutput0 = StringUtils.replace(Woutput0, key, String.valueOf(grail.get(key)));
+                Woutput1 = StringUtils.replace(Woutput1, key, String.valueOf(grail.get(key)));
+            }
+            Woutput0 = StringUtils.replace(Woutput0, "--", "+");
+            Woutput0 = StringUtils.replace(Woutput0, "+-", "-");
+            Woutput1 = StringUtils.replace(Woutput1, "--", "+");
+            Woutput1 = StringUtils.replace(Woutput1, "+-", "-");
+
+            Woutput0 = util.eval(Woutput0).toString();
+            Woutput1 = util.eval(Woutput1).toString();
+
+            ArrayList<Double> wOut = new ArrayList<>();
+
+            wOut.add(Double.parseDouble(Woutput0));
+            wOut.add(Double.parseDouble(Woutput1));
+            StaticStorage.modelServiceOutput.put(q, wOut);
+            q += qStep;
+        }
+        System.out.println(Arrays.toString(computedGradient));
+        for(double[] row:computedHessian)
+        {
+            System.out.println(Arrays.toString(row));
+        }
+    }
+
+    @Override
+    public Double computeTerm(String term, HashMap<String, Double> row, Double q, LinkedHashMap<String, Double> grail) {
+        String[] factors = StringUtils.split(term, '*');
+        Double computedTerm = row.get(term);
+        for (String factor : factors) {
+            if (factor.equals("number")) {
+                continue;
+            }
+            if (factor.equals("q")) {
+                computedTerm *= q;
+                continue;
+            }
+            if (factor.contains("^")) {
+                Double degree = Double.parseDouble(StringUtils.split(factor, "^")[1]);
+                factor = StringUtils.split(factor, "^")[0];
+                computedTerm *= Math.pow(grail.get(factor), degree);
+            } else {
+                computedTerm *= grail.get(factor);
+            }
+        }
+        return computedTerm;
     }
 
     private void defineA() {

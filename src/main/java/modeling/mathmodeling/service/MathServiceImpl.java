@@ -76,13 +76,14 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public HashMap<String, String> multithreadingGradient(ExprEvaluator util, HashMap<String, String> expandedTerms, LinkedList<String> variables) {
+    public HashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, LinkedList<String> variables) {
 //        StaticStorage.alreadyComputedDerivatives.clear();
         ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
         ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
             Runnable task = () -> {
-                gradient.put(variable, partialDerivative(util, expandedTerms, variable));
+                ExprEvaluator ut = new ExprEvaluator(true, 500000);
+                gradient.put(variable, partialDerivative(ut, expandedTerms, variable));
             };
             executorService.execute(task);
         }
@@ -90,7 +91,7 @@ public class MathServiceImpl implements MathService {
         try {
             executorService.awaitTermination(60, TimeUnit.SECONDS);
         } catch (Exception e) {
-
+            e.printStackTrace();
         }
         return new HashMap<>(gradient);
     }
@@ -117,8 +118,8 @@ public class MathServiceImpl implements MathService {
             factors.removeAll(factorsToDerivative);
 
             String toDerivate = String.join("*", factorsToDerivative);
-            String writeableResult= util.eval("D(" + toDerivate + ", " + variable + ")").toString();
-            writeableResult = StringUtils.replace(writeableResult,"\n", "");
+            String writeableResult = util.eval("D(" + toDerivate + ", " + variable + ")").toString();
+            writeableResult = StringUtils.replace(writeableResult, "\n", "");
             if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                 continue;
             }
@@ -140,8 +141,7 @@ public class MathServiceImpl implements MathService {
         if (output.trim() == "") {
             return "+0.0";
         }
-        output = StringUtils.replace(output, "+-", "-");
-        return util.eval(StringUtils.replace(output, "--", "+")).toString();
+        return output;
     }
 
     @Override
@@ -178,8 +178,7 @@ public class MathServiceImpl implements MathService {
             if (!factorsToIntegrateX.isEmpty()) {
                 String toIntegrate = String.join("*", factorsToIntegrateX);
                 if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
-                    String writeableResult = "";
-                    writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
+                    String writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
                     StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
                     result.add(writeableResult);
                     if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
@@ -194,8 +193,7 @@ public class MathServiceImpl implements MathService {
             if (!factorsToIntegrateY.isEmpty()) {
                 String toIntegrate = String.join("*", factorsToIntegrateY);
                 if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
-                    String writeableResult = "";
-                    writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableY + ", " + fromY + ", " + toY + "})").toString();
+                    String writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableY + ", " + fromY + ", " + toY + "})").toString();
                     StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
                     result.add(writeableResult);
                 } else {
@@ -207,7 +205,6 @@ public class MathServiceImpl implements MathService {
 
             String resultStr = String.join("*", result);
             if (StringUtils.contains(resultStr, "E-")) {
-//                System.out.println(resultStr);
                 continue;
             }
 

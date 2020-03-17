@@ -1,17 +1,13 @@
 package modeling.mathmodeling.service;
 
-import org.apache.commons.lang3.StringUtils;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class ParseServiceImpl implements ParseService {
-
-//    private ExprEvaluator util = new ExprEvaluator(true, 500000);
 
     @Override
     public HashMap<String, String> getTermsFromString(String input) {
@@ -484,26 +480,4 @@ public class ParseServiceImpl implements ParseService {
         return in;
     }
 
-    @Override
-    public String expandDegreeOptimizer(String in, String term, String replace) {
-//        String toReplace = util.eval(term).toString();
-
-        in = in.replace(" ", "");
-        for (int i = 2; i < 30; i++) {
-//            in = in.replaceAll(term + "\\^" + i, util.eval("ExpandAll((" + toReplace + ")\\^" + i + ")").toString());
-        }
-        return in;
-    }
-
-    @Override
-    public String expandBrackets(String input) {
-//        String res = util.eval("ExpandAll(" + input + ")").toString();
-//        System.out.println("Parse: " + res);
-//        String string = StringUtils.replace(res, "\n", "");
-
-//        if (!isSign(string.charAt(0))) {
-//            string = "+" + string;
-//        }
-        return "";
-    }
 }
