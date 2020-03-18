@@ -261,7 +261,7 @@ public class ModelingServiceImpl implements ModelingService {
                 }
                 firstStep = false;
             }
-            System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
+//            System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
 
             String Woutput0 = StringUtils.replace(w, "xx", String.valueOf(a / 2));
             Woutput0 = StringUtils.replace(Woutput0, "yy", String.valueOf(b / 2));
@@ -287,17 +287,22 @@ public class ModelingServiceImpl implements ModelingService {
 
             q += qStep;
         }
-        System.out.println(Arrays.toString(computedGradient));
-        for (double[] row : computedHessian) {
-            System.out.println(Arrays.toString(row));
-        }
     }
 
     @Override
     public Double computeTerm(String term, HashMap<String, Double> row, Double q, LinkedHashMap<String, Double> grail) {
-        String[] factors = StringUtils.split(term, "*");
         Double computedTerm = row.get(term);
-        for (String factor : factors) {
+        String factor;
+        int splitIndex = 0;
+        int degreeIndex;
+        while (splitIndex != -1) {
+            splitIndex = term.indexOf('*');
+            if (splitIndex != -1) {
+                factor = term.substring(0, splitIndex);
+                term = term.substring(splitIndex + 1);
+            } else {
+                factor = term;
+            }
             if (factor.equals("number")) {
                 continue;
             }
@@ -305,10 +310,10 @@ public class ModelingServiceImpl implements ModelingService {
                 computedTerm *= q;
                 continue;
             }
-            if (factor.contains("^")) {
-                String[] varAndDegree = StringUtils.split(factor, "^");
-                double degree = Double.parseDouble(varAndDegree[1]);
-                factor = varAndDegree[0];
+            degreeIndex = factor.indexOf('^');
+            if (degreeIndex != -1) {
+                double degree = Double.parseDouble(factor.substring(degreeIndex + 1));
+                factor = factor.substring(0, degreeIndex);
                 computedTerm *= Math.pow(grail.get(factor), degree);
             } else {
                 computedTerm *= grail.get(factor);

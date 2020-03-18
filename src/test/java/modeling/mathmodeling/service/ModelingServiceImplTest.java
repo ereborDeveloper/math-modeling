@@ -10,7 +10,10 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
@@ -51,10 +54,17 @@ class ModelingServiceImplTest {
             }
         }
         String w = "w11*Sin(0.5817764173314431*xx)*Sin(0.5817764173314431*yy)+w21*Sin(1.7453292519943293*xx)*Sin(0.5817764173314431*yy)+w12*Sin(0.5817764173314431*xx)*Sin(1.7453292519943293*yy)+w22*Sin(1.7453292519943293*xx)*Sin(1.7453292519943293*yy)";
-        modelingService.newtonMethodMatrix(w, 5.4, 5.4, coefficientsArray,  0.0000001, 3.5, 0.01, 1, gradient, hessian);
+        modelingService.newtonMethodMatrix(w, 5.4, 5.4, coefficientsArray, 0.0000001, 3.5, 0.01, 1, gradient, hessian);
     }
 
     @Test
     void computeTerm() {
+        String term = "u11";
+        HashMap<String, Double> row = new HashMap<>();
+        row.put("u11", 3.5);
+        LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
+        grail.put("u11", 0.0);
+        Double q = 3.5;
+        assertEquals(0.0, modelingService.computeTerm(term, row, q, grail));
     }
 }
