@@ -167,28 +167,29 @@ public class ModelingServiceImpl implements ModelingService {
         HashMap<String, Double> terms = parseService.getTermsFromString(Es);
 
         logService.debug("Считаем интеграл в многопоточке");
-        String afterIntegrate = mathService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
-        afterIntegrate = StringUtils.replace(afterIntegrate, "\n", "");
-        //TODO: Для N = 4 сыпется здесь
-        logService.debug("Разбиваем на terms");
-        terms = parseService.getTermsFromString(afterIntegrate);
-        logService.debug("Считаем градиент");
+        HashMap<String, Double> afterIntegrate = mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
 
-//        System.out.println(afterIntegrate);
-        HashMap<String, HashMap<String, Double>> gradient = mathMatrixService.multithreadingGradient(terms, coefficients);
+        logService.debug("Считаем градиент");
+        HashMap<String, HashMap<String, Double>> gradient = mathMatrixService.multithreadingGradient(afterIntegrate, coefficients);
+
         logService.debug("Считаем Гесса");
         HashMap<String, HashMap<String, Double>> hessian = new HashMap<>();
         // TODO: Распараллелить
+        HashMap<String, Double> diff;
+        HashMap<String, Double> firstDerivativeResult;
+        String firstDiffVariable;
+        String secondDiffVar;
         for (int i = 0; i < coefficientsArray.length; i++) {
-            String firstDiffVariable = coefficientsArray[i];
+            firstDiffVariable = coefficientsArray[i];
+            firstDerivativeResult = gradient.get(firstDiffVariable);
             for (int j = 0; j <= i; j++) {
-                String secondDiffVar = coefficientsArray[j];
-                hessian.put(firstDiffVariable + "|" + secondDiffVar, mathMatrixService.matrixDerivative(util, gradient.get(firstDiffVariable), secondDiffVar));
+                secondDiffVar = coefficientsArray[j];
+                diff = mathMatrixService.matrixDerivative(util, firstDerivativeResult, secondDiffVar);
+                hessian.put(firstDiffVariable + "|" + secondDiffVar, diff);
             }
         }
         logService.debug("Метод Ньютона");
         String WOutput = util.eval("W").toString();
-        System.out.println(WOutput);
         try {
             newtonMethodMatrix(WOutput, a, b, coefficientsArray, input.getEps(), qMax, qStep, stepCount, gradient, hessian);
         } catch (Exception e) {
@@ -201,10 +202,15 @@ public class ModelingServiceImpl implements ModelingService {
 
     @Override
     public void newtonMethodMatrix(String w, Double a, Double b, String[] coefficients, double eps, double qMax, double qStep, int stepCount, HashMap<String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian) {
-        System.out.println(Arrays.toString(coefficients));
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
         double[] computedGradient = new double[coefficients.length];
         double[][] computedHessian = new double[coefficients.length][coefficients.length];
+        String firstDiffVar;
+        String secondDiffVar;
+        SimpleMatrix firstMatrix;
+        SimpleMatrix secondMatrix;
+        double[] multiply;
+        HashMap<String, Double> row;
         for (String coef : coefficients) {
             grail.put(coef, 0.0);
         }
@@ -219,16 +225,16 @@ public class ModelingServiceImpl implements ModelingService {
             while (zz < stepCount) {
                 zz++;
                 for (int i = 0; i < coefficients.length; i++) {
-                    HashMap<String, Double> row = gradient.get(coefficients[i]);
+                    row = gradient.get(coefficients[i]);
                     for (String term : row.keySet()) {
                         computedGradient[i] += computeTerm(term, row, q, grail);
                     }
                 }
                 for (int i = 0; i < coefficients.length; i++) {
-                    String firstDiffVar = coefficients[i];
+                    firstDiffVar = coefficients[i];
                     for (int j = 0; j <= i; j++) {
-                        String secondDiffVar = coefficients[j];
-                        HashMap<String, Double> row = hessian.get(firstDiffVar + "|" + secondDiffVar);
+                        secondDiffVar = coefficients[j];
+                        row = hessian.get(firstDiffVar + "|" + secondDiffVar);
                         for (String term : row.keySet()) {
                             computedHessian[i][j] += computeTerm(term, row, q, grail);
                             computedHessian[j][i] = computedHessian[i][j];
@@ -236,16 +242,16 @@ public class ModelingServiceImpl implements ModelingService {
                     }
                 }
 
-                SimpleMatrix firstMatrix = new SimpleMatrix(computedHessian);
+                firstMatrix = new SimpleMatrix(computedHessian);
                 // xi+1 = xi - H(xi)^-1 * G(xi);
                 firstMatrix = firstMatrix.invert();
 
-                SimpleMatrix secondMatrix = new SimpleMatrix(new double[][]{computedGradient});
-                double[] multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
+                secondMatrix = new SimpleMatrix(new double[][]{computedGradient});
+                multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
 
                 int t = 0;
                 for (String key : grail.keySet()) {
-                    Double temp = Math.abs(grail.get(key) - multiply[t]);
+                    double temp = Math.abs(grail.get(key) - multiply[t]);
                     if (temp < max) {
                         max = temp;
                     }

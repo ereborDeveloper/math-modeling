@@ -45,7 +45,7 @@ class MathModelingApplicationTests {
         dto.setA1(5.4);
         dto.setB0(0);
         dto.setB1(5.4);
-        dto.setN(2);
+        dto.setN(4);
         dto.setE1(210000);
         dto.setE2(210000);
         dto.setMu12(0.3);
