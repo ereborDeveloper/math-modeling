@@ -1,17 +1,19 @@
 package modeling.mathmodeling.service;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 
 @Service
 public class ParseServiceImpl implements ParseService {
 
     @Override
-    public HashMap<String, String> getTermsFromString(String input) {
-        HashMap<String, String> terms = new HashMap<>();
+    public HashMap<String, Double> getTermsFromString(String input) {
+        HashMap<String, Double> terms = new HashMap<>();
         String output;
         input = input.replaceAll(" ", "");
         int beginIndex = 0;
@@ -24,7 +26,7 @@ public class ParseServiceImpl implements ParseService {
             carriageCharacter = '+';
         }
         if (input.length() == 1 && beginIndex == 0) {
-            terms.put(input, carriageCharacter.toString());
+            terms.put(input, Double.parseDouble(carriageCharacter.toString() + "1"));
             return terms;
         }
         for (int i = 1; i < input.length(); i++) {
@@ -35,27 +37,37 @@ public class ParseServiceImpl implements ParseService {
                     endIndex = i;
                     output = input.substring(beginIndex, endIndex);
                 }
+                ArrayList<String> factors = splitAndSkipInsideBrackets(output, '*');
+                double numeric = Double.parseDouble(carriageCharacter + "1.0");
+                ArrayList<String> numericFactors = new ArrayList<>();
+                for(String factor: factors)
+                {
+                    if(NumberUtils.isCreatable(factor))
+                    {
+                        numericFactors.add(factor);
+                        numeric *= Double.parseDouble(factor);
+                    }
+                }
+                factors.removeAll(numericFactors);
+
+                Collections.sort(factors);
+                if(factors.isEmpty())
+                {
+                    output = "number";
+                }
+                else {
+                    output = String.join("*", factors);
+                }
                 if (terms.containsKey(output)) {
-                    String signAndValue = terms.get(output);
-                    int currentValue = 1;
-                    if (signAndValue.length() > 1) {
-                        // +7*
-                        currentValue = Integer.parseInt(signAndValue.substring(1, signAndValue.length() - 1));
-                    }
-                    Character firstSign = signAndValue.charAt(0);
-                    if (carriageCharacter == firstSign) {
-                        currentValue++;
-                    } else {
-                        currentValue--;
-                    }
+                    Double value = terms.get(output);
+                    double currentValue = value + numeric;
                     if (currentValue == 0) {
                         terms.remove(output);
                     } else {
-                        String newSign = carriageCharacter.toString() + currentValue + "*";
-                        terms.put(output, newSign);
+                        terms.put(output, currentValue);
                     }
                 } else {
-                    terms.put(output, carriageCharacter.toString());
+                    terms.put(output, numeric);
                 }
                 carriageCharacter = input.charAt(i);
                 beginIndex = i + 1;
@@ -64,31 +76,7 @@ public class ParseServiceImpl implements ParseService {
         return terms;
     }
 
-    @Override
-    public double getNumericResult(String input) {
-        double numericOutput = 0.0;
-        String output;
-        HashMap<String, String> terms = getTermsFromString(input);
-        for (String term : terms.keySet()) {
-            int lastPosition = 0;
-            Character currentSign;
-            for (int i = 0; i < term.length(); i++) {
-                if (term.charAt(i) == '+') {
-                    currentSign = '+';
-                }
-                if (term.charAt(i) == '-') {
-                    currentSign = '+';
-                }
-                if (term.charAt(i) == '*') {
-                    currentSign = '+';
-                }
-                if (term.charAt(i) == '/') {
-                    currentSign = '+';
-                }
-            }
-        }
-        return numericOutput;
-    }
+
 
     @Override
     public String expandDegree(String input) {

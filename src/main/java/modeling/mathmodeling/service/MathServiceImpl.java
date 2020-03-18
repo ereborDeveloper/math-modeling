@@ -24,7 +24,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String partialIntegrate(ExprEvaluator util, HashMap<String, String> expandedTerms, String variable, double from, double to, String type) {
+    public String partialIntegrate(ExprEvaluator util, HashMap<String, Double> expandedTerms, String variable, double from, double to, String type) {
         String output = "";
         Config.EXPLICIT_TIMES_OPERATOR = true;
         Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
@@ -60,7 +60,11 @@ public class MathServiceImpl implements MathService {
                 // Если не зависит от переменной интегрирования, то подставляем пределы
                 result.add(String.valueOf(to - from));
             }
-            String sign = expandedTerms.get(term);
+            String value = String.valueOf(expandedTerms.get(term));
+            if(value.charAt(0) != '-')
+            {
+                value = "+" + value;
+            }
             String parsedResult;
             if (!factors.isEmpty()) {
                 parsedResult = String.join("*", factors) + "*" + String.join("*", result);
@@ -68,7 +72,7 @@ public class MathServiceImpl implements MathService {
                 parsedResult = String.join("*", result);
             }
             if (parsedResult != "") {
-                output += sign + parsedResult;
+                output += value + "*" + parsedResult;
             }
         }
         output = StringUtils.replace(output, "+-", "-");
@@ -76,7 +80,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public HashMap<String, String> multithreadingGradient(HashMap<String, String> expandedTerms, LinkedList<String> variables) {
+    public HashMap<String, String> multithreadingGradient(HashMap<String, Double> expandedTerms, LinkedList<String> variables) {
 //        StaticStorage.alreadyComputedDerivatives.clear();
         ConcurrentHashMap<String, String> gradient = new ConcurrentHashMap<>();
         ExecutorService executorService = Executors.newWorkStealingPool();
@@ -97,7 +101,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String partialDerivative(ExprEvaluator util, HashMap<String, String> terms, String variable) {
+    public String partialDerivative(ExprEvaluator util, HashMap<String, Double> terms, String variable) {
         String output = "";
         if (terms.isEmpty()) {
             return "+0.0";
@@ -124,7 +128,11 @@ public class MathServiceImpl implements MathService {
                 continue;
             }
 
-            String sign = terms.get(term);
+            String value = String.valueOf(terms.get(term));
+            if(value.charAt(0) != '-')
+            {
+                value = "+" + value;
+            }
             String parsedResult;
             if (!factors.isEmpty()) {
                 parsedResult = String.join("*", factors) + "*" + writeableResult;
@@ -135,7 +143,7 @@ public class MathServiceImpl implements MathService {
                 continue;
             }
             if (parsedResult != "") {
-                output += sign + parsedResult;
+                output += value + "*" + parsedResult;
             }
         }
         if (output.trim() == "") {
@@ -145,7 +153,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String partialDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+    public String partialDoubleIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
         int i = 0;
         int size = expandedTerms.size();
         String output = "";
@@ -208,7 +216,11 @@ public class MathServiceImpl implements MathService {
                 continue;
             }
 
-            String sign = expandedTerms.get(term);
+            String value = String.valueOf(expandedTerms.get(term));
+            if(value.charAt(0) != '-')
+            {
+                value = "+" + value;
+            }
             String parsedResult;
             if (!factors.isEmpty()) {
                 parsedResult = String.join("*", factors) + "*" + resultStr;
@@ -217,7 +229,7 @@ public class MathServiceImpl implements MathService {
             }
 
             if (parsedResult != "") {
-                output += sign + parsedResult;
+                output += value + "*" + parsedResult;
             }
             i++;
 //            System.out.println(i + "/" + size);
@@ -226,7 +238,7 @@ public class MathServiceImpl implements MathService {
     }
 
     @Override
-    public String multithreadingDoubleIntegrate(HashMap<String, String> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+    public String multithreadingDoubleIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
         ConcurrentLinkedQueue<String> result = new ConcurrentLinkedQueue<>();
         int termsCount = expandedTerms.size();
         int blockSize = termsCount / getAvailableCores();
@@ -240,7 +252,7 @@ public class MathServiceImpl implements MathService {
             } else {
                 partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
             }
-            HashMap<String, String> partialTerms = new HashMap<>();
+            HashMap<String, Double> partialTerms = new HashMap<>();
             for (String key : partialKeys) {
                 partialTerms.put(key, expandedTerms.get(key));
             }
@@ -254,7 +266,7 @@ public class MathServiceImpl implements MathService {
         try {
             executorService.awaitTermination(60, TimeUnit.SECONDS);
         } catch (Exception e) {
-
+            e.printStackTrace();
         }
         return String.join("", result);
     }

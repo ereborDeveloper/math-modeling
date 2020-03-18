@@ -22,7 +22,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
 
 
     @Override
-    public HashMap<String, HashMap<String, Double>> multithreadingGradient(HashMap<String, String> expandedTerms, LinkedList<String> variables) {
+    public HashMap<String, HashMap<String, Double>> multithreadingGradient(HashMap<String, Double> expandedTerms, LinkedList<String> variables) {
         HashMap<String, HashMap<String, Double>> gradient = new HashMap<>();
         ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
@@ -42,7 +42,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
     }
 
     @Override
-    public HashMap<String, Double> partialDerivative(ExprEvaluator util, HashMap<String, String> terms, String variable) {
+    public HashMap<String, Double> partialDerivative(ExprEvaluator util, HashMap<String, Double> terms, String variable) {
         HashMap<String, Double> output = new HashMap<>();
         if (terms.isEmpty()) {
             return output;
@@ -56,8 +56,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             ArrayList<String> factorsToDerivative = new ArrayList<>();
             ArrayList<String> numericFactors = new ArrayList<>();
 
-            String sign = terms.get(term);
-            double numeric = Double.parseDouble(sign + "1");
+            double numeric = terms.get(term);
 
             filterFactorsByVariable(variable, factors, factorsToDerivative, numericFactors);
 

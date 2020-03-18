@@ -13,6 +13,8 @@ public class InputDTO {
     private double qMax;
     @JsonProperty("stepcount")
     private int stepCount;
+    @JsonProperty("eps")
+    private double eps;
     @JsonProperty("shellindex")
     private int shellIndex;
     @JsonProperty("d")

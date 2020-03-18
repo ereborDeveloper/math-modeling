@@ -28,7 +28,7 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenSign_thenEmpty() {
         String in = "+";
-        HashMap<String, String> expected = new HashMap<>();
+        HashMap<String, Double> expected = new HashMap<>();
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -36,8 +36,8 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenOne() {
         String in = "x";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("x", "+");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("x", 1.0);
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -45,9 +45,8 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenFirstMinus_thenReadAsTerm() {
         String in = "-x-2*x";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("x", "-");
-        expected.put("2*x", "-");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("x", -3.0);
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -55,9 +54,8 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenFirstPlus_thenReadAsTerm() {
         String in = "+x-2*x";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("x", "+");
-        expected.put("2*x", "-");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("x", -1.0);
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -65,9 +63,9 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenE_thenPass() {
         String in = "-2.078E-10-2*x";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("2.078E-10", "-");
-        expected.put("2*x", "-");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("number", -2.078E-10);
+        expected.put("x", -2.0);
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -75,12 +73,11 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenDifferentTerms_thenSaveSigns() {
         String in = "1 + x - Sin(x^2) + 7a - 7";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("1", "+");
-        expected.put("x", "+");
-        expected.put("Sin(x^2)", "-");
-        expected.put("7a", "+");
-        expected.put("7", "-");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("x", 1.0);
+        expected.put("Sin(x^2)", -1.0);
+        expected.put("7a", 1.0);
+        expected.put("number", -6.0);
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -88,9 +85,9 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenSameTermsSameSign_thenSum() {
         String in = "Sin(x*a) + Sin(x*a) - Cos(x*a) + Sin(x*a)";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("Sin(x*a)", "+3*");
-        expected.put("Cos(x*a)", "-");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("Sin(x*a)", 3.0);
+        expected.put("Cos(x*a)", -1.0);
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -98,8 +95,16 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenSameTermsDifferentSign_thenAnnihilate() {
         String in = "Sin(x*a) - Sin(x*a) - Cos(x*a) + Sin(x*a) + Cos(x*a)";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("Sin(x*a)", "+");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("Sin(x*a)", 1.0);
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
+    void getTerms_whenSameTermsDifferentFactor_thenSum() {
+        String in = "Sin(x*a) - 2*Sin(x*a) - Cos(x*a) + Sin(x*a) + Cos(x*a)";
+        HashMap<String, Double> expected = new HashMap<>();
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -107,8 +112,8 @@ class ParseServiceImplTest {
     @Test
     void getTerms_whenNegativeDegree_thenDontTouch() {
         String in = "8.5270548796886186*10^-1";
-        HashMap<String, String> expected = new HashMap<>();
-        expected.put("8.5270548796886186*10^-1", "+");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("10^-1", 8.5270548796886186);
 
         assertEquals(expected, parseService.getTermsFromString(in));
     }
@@ -274,9 +279,9 @@ class ParseServiceImplTest {
         assertEquals("-1237.5*dwx*dwx-1237", parseService.expandDegreeByTerm(in, "dwx"));
 
         in = "10384.615384615385*dux*dwx^2.0";
-        String out =  parseService.expandDegreeByTerm(in, "dwx");
+        String out = parseService.expandDegreeByTerm(in, "dwx");
 //        out = out.replaceAll("dwx", "(" + "cos(x)*w + sin(x)^2" + ")");
-        assertEquals("10384.615384615385*dux*dwx*dwx",out);
+        assertEquals("10384.615384615385*dux*dwx*dwx", out);
 
 
         in = "76.92307692307692*(0.5817764173314433*w11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)+1.7453292519943298*w12*Cos(1.7453292519943298*yy)*Sin(0.5817764173314433*xx)+0.5817764173314433*w21*Cos(0.5817764173314433*yy)*Sin(1.7453292519943298*xx)+1.7453292519943298*w22*Cos(1.7453292519943298*yy)*Sin(1.7453292519943298*xx))^2.0*w12*x3(1.0)*y3(2.0)";
@@ -303,16 +308,9 @@ class ParseServiceImplTest {
 
     @Test
     void expandDegreeAndReplaceTerm_full() {
-        String in = "+7.009615384615383*dpsixdx^2+2.102884615384615*dpsixdx*dpsiydy+2.102884615384615*dbx*dpsixdx*psix11*x4(1)*y4(1)+2.102884615384615*dbx*dpsixdx*psix21*x4(2)*y4(1)+2.102884615384615*dbx*dpsixdx*psix12*x4(1)*y4(2)+2.102884615384615*dbx*dpsixdx*psix22*x4(2)*y4(2)+1.4019230769230766*10^1*day*dpsixdx*psiy11*x5(1)*y5(1)+2.102884615384615*day*dpsiydy*psiy11*x5(1)*y5(1)+1.4019230769230766*10^1*day*dpsixdx*psiy21*x5(2)*y5(1)+2.102884615384615*day*dpsiydy*psiy21*x5(2)*y5(1)+2.102884615384615*day*dbx*psix11*psiy11*x4(1)*x5(1)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix21*psiy11*x4(2)*x5(1)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix11*psiy21*x4(1)*x5(2)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix21*psiy21*x4(2)*x5(2)*y4(1)*y5(1)+2.102884615384615*day*dbx*psix12*psiy11*x4(1)*x5(1)*y4(2)*y5(1)+2.102884615384615*day*dbx*psix22*psiy11*x4(2)*x5(1)*y4(2)*y5(1)+2.102884615384615*day*dbx*psix12*psiy21*x4(1)*x5(2)*y4(2)*y5(1)+2.102884615384615*day*dbx*psix22*psiy21*x4(2)*x5(2)*y4(2)*y5(1)+7.009615384615383*day^2*psiy11^2*x5(1)^2*y5(1)^2+1.4019230769230766*10^1*day^2*psiy11*psiy21*x5(1)*x5(2)*y5(1)^2+7.009615384615383*day^2*psiy21^2*x5(2)^2*y5(1)^2+1.4019230769230766*10^1*day*dpsixdx*psiy12*x5(1)*y5(2)+2.102884615384615*day*dpsiydy*psiy12*x5(1)*y5(2)+1.4019230769230766*10^1*day*dpsixdx*psiy22*x5(2)*y5(2)+2.102884615384615*day*dpsiydy*psiy22*x5(2)*y5(2)+2.102884615384615*day*dbx*psix11*psiy12*x4(1)*x5(1)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix21*psiy12*x4(2)*x5(1)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix11*psiy22*x4(1)*x5(2)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix21*psiy22*x4(2)*x5(2)*y4(1)*y5(2)+2.102884615384615*day*dbx*psix12*psiy12*x4(1)*x5(1)*y4(2)*y5(2)+2.102884615384615*day*dbx*psix22*psiy12*x4(2)*x5(1)*y4(2)*y5(2)+2.102884615384615*day*dbx*psix12*psiy22*x4(1)*x5(2)*y4(2)*y5(2)+2.102884615384615*day*dbx*psix22*psiy22*x4(2)*x5(2)*y4(2)*y5(2)+1.4019230769230766*10^1*day^2*psiy11*psiy12*x5(1)^2*y5(1)*y5(2)+1.4019230769230766*10^1*day^2*psiy12*psiy21*x5(1)*x5(2)*y5(1)*y5(2)+1.4019230769230766*10^1*day^2*psiy11*psiy22*x5(1)*x5(2)*y5(1)*y5(2)+1.4019230769230766*10^1*day^2*psiy21*psiy22*x5(2)^2*y5(1)*y5(2)+7.009615384615383*day^2*psiy12^2*x5(1)^2*y5(2)^2+1.4019230769230766*10^1*day^2*psiy12*psiy22*x5(1)*x5(2)*y5(2)^2+7.009615384615383*day^2*psiy22^2*x5(2)^2*y5(2)^2";
-        String out = parseService.expandAllDegreesAndReplaceTerm(in, "dpsixdx", "-0.5817764173314433*psix11*Sin(0.5817764173314433*xx)*Sin(0.5817764173314433*yy)-1.7453292519943298*psix21*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)-0.5817764173314433*psix12*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*yy)-1.7453292519943298*psix22*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)");
-        out = parseService.expandAllDegreesAndReplaceTerm(out, "dpsixdy", "0.5817764173314433*psix11*Cos(0.5817764173314433*xx)*Cos(0.5817764173314433*yy)+0.5817764173314433*psix21*Cos(1.7453292519943298*xx)*Cos(0.5817764173314433*yy)+1.7453292519943298*psix12*Cos(0.5817764173314433*xx)*Cos(1.7453292519943298*yy)+1.7453292519943298*psix22*Cos(1.7453292519943298*xx)*Cos(1.7453292519943298*yy)");
-        out = parseService.expandAllDegreesAndReplaceTerm(out, "dbx", "0");
-        out = parseService.expandAllDegreesAndReplaceTerm(out, "dax", "0");
-        out = parseService.expandAllDegreesAndReplaceTerm(out, "dby", "0");
-        out = parseService.expandAllDegreesAndReplaceTerm(out, "day", "0");
-
-
-        assertEquals("2.3725010579541728*psix11^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+0.7117503173862517*psix11*psiy11*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+14.235006347725037*psix11*psix21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)^2.0+2.1352509521587555*psix21*psiy11*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)^2.0+0.7117503173862517*psix11*psiy21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)^2.0+21.352509521587553*psix21^2.0*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+2.1352509521587555*psix21*psiy21*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)^2.0+4.7450021159083455*psix11*psix12*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+0.7117503173862517*psix12*psiy11*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix11*psiy12*Sin(0.5817764173314433*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+14.235006347725037*psix12*psix21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+14.235006347725037*psix11*psix22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix22*psiy11*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+6.405752856476266*psix21*psiy12*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+0.7117503173862517*psix12*psiy21*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix11*psiy22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+42.705019043175106*psix21*psix22*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.1352509521587555*psix22*psiy21*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+6.405752856476266*psix21*psiy22*Sin(1.7453292519943298*xx)^2.0*Sin(0.5817764173314433*yy)*Sin(1.7453292519943298*yy)+2.3725010579541728*psix12^2.0*Sin(0.5817764173314433*xx)^2.0*Sin(1.7453292519943298*yy)^2.0+2.1352509521587555*psix12*psiy12*Sin(0.5817764173314433*xx)^2.0*Sin(1.7453292519943298*yy)^2.0+14.235006347725037*psix12*psix22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)^2.0+6.405752856476266*psix22*psiy12*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)^2.0+2.1352509521587555*psix12*psiy22*Sin(0.5817764173314433*xx)*Sin(1.7453292519943298*xx)*Sin(1.7453292519943298*yy)^2.0+21.352509521587553*psix22^2.0*Sin(1.7453292519943298*xx)^2.0*Sin(1.7453292519943298*yy)^2.0+6.405752856476266*psix22*psiy22*Sin(1.7453292519943298*xx)^2.0*Sin(1.7453292519943298*yy)^2.0", out);
+        String in = "+7.0*dpsixdx^2+2.10*dpsixdx*dpsiydy";
+        String out = parseService.expandAllDegreesAndReplaceTerm(in, "dpsixdx", "bubble");
+        assertEquals("+7.0*bubble*bubble+2.10*bubble*dpsiydy", out);
     }
 
     @Test
@@ -322,7 +320,46 @@ class ParseServiceImplTest {
     }
 
     @Test
-    void getNumericResult() {
-        assertEquals("2", parseService.getNumericResult("1*0.5 + 3/2"));
+    void customSplit() {
+        String line = "12 34";
+        int[] pow = new int[]{1, 10, 100, 1000, 10000, 100000};
+
+        int x = 0;
+        int y = 0;
+
+        int len = line.length();
+        int index = len - 1;
+        while (index > 0 && line.charAt(index) != ' ') {
+            char c = line.charAt(index);
+            switch (c) {
+                case '+':
+                    break;
+                case '-':
+                    y *= -1;
+                    break;
+                default:
+                    y += (c - '0') * pow[len - index - 1];
+                    break;
+            }
+            index--;
+        }
+
+        len = index;
+        index--;
+        while (index >= 0) {
+            char c = line.charAt(index);
+            switch (c) {
+                case '+':
+                    break;
+                case '-':
+                    x *= -1;
+                    break;
+                default:
+                    x += (c - '0') * pow[len - index - 1];
+                    break;
+            }
+
+            index--;
+        }
     }
 }

@@ -31,7 +31,7 @@ class MathMatrixServiceImplTest {
         HashMap<String, Double> expected = new HashMap<>();
         expected.put("u12", +3.0);
         expected.put("number", 4.0);
-        expected.put("u11", 2.0);
+        expected.put("u11", 4.0);
         assertEquals(expected, mathMatrixService.partialDerivative(util, parseService.getTermsFromString(in), diffVariable));
     }
 

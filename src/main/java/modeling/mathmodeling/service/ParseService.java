@@ -4,9 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public interface ParseService {
-    HashMap<String, String> getTermsFromString(String input);
-
-    double getNumericResult(String input);
+    HashMap<String, Double> getTermsFromString(String input);
 
     String expandDegree(String input);
 
