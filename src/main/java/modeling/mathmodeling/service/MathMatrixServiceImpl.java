@@ -33,7 +33,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
         for (String variable : variables) {
             Runnable task = () -> {
                 ExprEvaluator ut = new ExprEvaluator(true, 500000);
-                gradient.put(variable, partialDerivative(ut, expandedTerms, variable));
+                gradient.put(variable, partialDerivative(ut, new HashMap<>(expandedTerms), variable));
             };
             executorService.execute(task);
         }
@@ -115,6 +115,11 @@ public class MathMatrixServiceImpl implements MathMatrixService {
         ArrayList<String> numericFactors;
         double numericValue;
         String outputKey;
+
+        if(terms == null)
+        {
+            return output;
+        }
 
         for (String term : terms.keySet()) {
             if (!term.contains(variable)) {
@@ -253,6 +258,78 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             }
             i++;
 //            System.out.println(i + "/" + size);
+        }
+        return output;
+    }
+
+    @Override
+    public HashMap<String, Double> partialIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX) {
+        HashMap<String, Double> output = new HashMap<>();
+        ExprEvaluator util = new ExprEvaluator(true, 50000);
+        Config.EXPLICIT_TIMES_OPERATOR = true;
+        Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
+        Config.DOUBLE_EPSILON = 1.0E-40D;
+
+        for (String term : expandedTerms.keySet()) {
+            if (StringUtils.replace(term, "\n", "").trim().length() == 0) {
+                continue;
+            }
+            ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
+            ArrayList<String> factorsToIntegrateX = new ArrayList<>();
+            for (String factor : factors) {
+                if (factor.contains(variableX)) {
+                    factorsToIntegrateX.add(factor);
+                }
+            }
+
+            factors.removeAll(factorsToIntegrateX);
+
+            ArrayList<String> result = new ArrayList<>();
+            if (!factorsToIntegrateX.isEmpty()) {
+                String toIntegrate = String.join("*", factorsToIntegrateX);
+                if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
+                    String writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
+                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    result.add(writeableResult);
+                    if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
+                        continue;
+                    }
+                } else {
+                    result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
+                }
+            } else {
+                result.add(String.valueOf(toX - fromX));
+            }
+
+            String resultStr = String.join("*", result);
+            if (StringUtils.contains(resultStr, "E-")) {
+                continue;
+            }
+            result.addAll(factors);
+            ArrayList<String> numericFactors = new ArrayList<>();
+            double numeric = expandedTerms.get(term);
+            for (String factor : result) {
+                if (NumberUtils.isCreatable(factor)) {
+                    numericFactors.add(factor);
+                    numeric *= Double.parseDouble(factor);
+                }
+            }
+
+            result.removeAll(numericFactors);
+
+            resultStr = String.join("*", result);
+
+            if (numeric != 0.0) {
+                if (resultStr.equals("")) {
+                    resultStr = "number";
+                }
+                Double currentValue = output.get(resultStr);
+                if (currentValue != null) {
+                    output.put(resultStr, currentValue + numeric);
+                } else {
+                    output.put(resultStr, numeric);
+                }
+            }
         }
         return output;
     }

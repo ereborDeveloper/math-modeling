@@ -54,7 +54,7 @@ class ModelingServiceImplTest {
             }
         }
         String w = "w11*Sin(0.5817764173314431*xx)*Sin(0.5817764173314431*yy)+w21*Sin(1.7453292519943293*xx)*Sin(0.5817764173314431*yy)+w12*Sin(0.5817764173314431*xx)*Sin(1.7453292519943293*yy)+w22*Sin(1.7453292519943293*xx)*Sin(1.7453292519943293*yy)";
-        modelingService.newtonMethodMatrix(w, 5.4, 5.4, coefficientsArray, 0.0000001, 3.5, 0.01, 1, gradient, hessian);
+        modelingService.newtonMethodMatrix(w, 5.4, 5.4, 0.0000001, 3.5, 0.01, 1, 1, gradient, hessian);
     }
 
     @Test
@@ -65,6 +65,7 @@ class ModelingServiceImplTest {
         LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
         grail.put("u11", 0.0);
         Double q = 3.5;
-        assertEquals(0.0, modelingService.computeTerm(term, row, q, grail));
+        Double computedTerm = row.get(term);
+        assertEquals(0.0, modelingService.computeTerm(term, computedTerm, q, grail));
     }
 }

@@ -30,5 +30,14 @@ def expand():
     return rstr
 
 
+@app.route('/expand-list', methods=['GET', 'POST'])
+def expandList():
+    istr = request.form.get("input")
+    print(istr)
+    # estr = str(sm.expand(istr))
+    # rstr = estr.replace("**", "^").replace(" ", "")
+    # return rstr
+
+
 if __name__ == '__main__':
     app.run(debug=True)

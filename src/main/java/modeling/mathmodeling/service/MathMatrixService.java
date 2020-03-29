@@ -20,4 +20,7 @@ public interface MathMatrixService {
 
     HashMap <String, Double> partialDoubleIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY);
 
+    HashMap <String, Double> partialIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX);
+
+
 }

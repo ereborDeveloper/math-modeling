@@ -122,4 +122,18 @@ class MathMatrixServiceImplTest {
         expected.put("psiy12", 250.0);
         assertEquals(expected, mathMatrixService.multithreadingDoubleIntegrate(in, "v12", 0, 5, "x", 0, 5));
     }
+
+    @Test
+    void partialIntegrate() {
+        HashMap<String, Double> in = new HashMap<>();
+        in.put("v12", 10.0);
+        in.put("v12^2", -10.0);
+        in.put("psiy12", 10.0);
+
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("number", -1458.333333333333);
+        expected.put("psiy12", 250.0);
+        assertEquals(expected, mathMatrixService.partialIntegrate(in, "v12", 0, 5));
+
+    }
 }

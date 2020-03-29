@@ -5,6 +5,7 @@ import okhttp3.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -37,6 +38,11 @@ public class PyMathServiceImpl implements PyMathService {
             e.printStackTrace();
         }
         return output;
+    }
+
+    @Override
+    public String expand(List<String> input) {
+        return null;
     }
 
     @Override

@@ -13,6 +13,8 @@ public class InputDTO {
     private double qMax;
     @JsonProperty("stepcount")
     private int stepCount;
+    @JsonProperty("optimizationbreak")
+    private int optimizationBreak;
     @JsonProperty("eps")
     private double eps;
     @JsonProperty("shellindex")
@@ -51,4 +53,6 @@ public class InputDTO {
     private double b0;
     @JsonProperty("b1")
     private double b1;
+    @JsonProperty("isedgeenabled")
+    private boolean isEdgeEnabled;
 }

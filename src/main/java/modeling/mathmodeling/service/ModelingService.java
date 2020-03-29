@@ -8,7 +8,7 @@ import java.util.LinkedHashMap;
 public interface ModelingService {
     void model(InputDTO input);
 
-    void newtonMethodMatrix(String w, Double a, Double b, String[] coefficients, double eps, double qMax, double qStep, int stepCount, HashMap<String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian);
+    void newtonMethodMatrix(String w, Double a, Double b, double eps, double qMax, double qStep, int stepCount, int optimizationBreak, HashMap<String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian);
 
-    Double computeTerm(String term, HashMap<String, Double> row, Double q, LinkedHashMap<String, Double> grail);
+    Double computeTerm(String term, Double computedTerm, Double q, LinkedHashMap<String, Double> grail);
 }

@@ -10,6 +10,7 @@ import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -44,6 +45,8 @@ public class ModelingServiceImpl implements ModelingService {
     private int N;
     private String[] coefficientsArray;
     private LinkedList<String> coefficients;
+
+    LinkedHashMap<String, Double> grail;
 
     public ModelingServiceImpl(PyMathService pyMathService, ParseService parseService, MathService mathService, MathMatrixService mathMatrixService, LogService logService) {
         this.pyMathService = pyMathService;
@@ -117,6 +120,7 @@ public class ModelingServiceImpl implements ModelingService {
 
         defineApprox(a, b);
 
+
         util.eval("Theta1 := -(D(W, xx) / A + kx * U)");
         util.eval("Theta2 := -(D(W, yy) / B + ky * V)");
 
@@ -149,12 +153,14 @@ public class ModelingServiceImpl implements ModelingService {
         util.eval("QX := G * (PsiX - Theta1) * k * h");
         util.eval("QY := G * k * h * (PsiY - Theta2)");
 
+
         String Es = "0.5 * NX * eX "
                 +
                 " + 0.5 * NY * eY + 0.25 * NXY * gammaXY + 0.25 * NYX * gammaXY + " +
                 "0.5 * MX * Chi1 + 0.5 * MY * Chi2 + 0.5 * MXY * Chi12 + 0.5 * MYX * Chi12 + " +
                 "0.5 * Qx * PsiX - 0.5 * QX * Theta1 "
                 + "+ 0.5 * QY * PsiY - 0.5 * QY * Theta2 - q * W * A * B";
+
 
         Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
 
@@ -169,29 +175,68 @@ public class ModelingServiceImpl implements ModelingService {
         logService.debug("Считаем интеграл в многопоточке");
         HashMap<String, Double> afterIntegrate = mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
 
+        // Ребро
+//        if (input.isEdgeEnabled()) {
+//            logService.debug("Считаем ребро");
+//
+//            String hi[] = new String[];
+//            String hj[] = new String[];
+//            String hij[] = new String[];
+//
+//            String Fi[] = new String[];
+//            String Fj[] = new String[];
+//            String Fij[] = new String[];
+//
+//            String Ji[] = new String[];
+//            String Jj[] = new String[];
+//            String Jij[] = new String[];
+//
+//            String Si[] = new String[];
+//            String Sj[] = new String[];
+//            String Sij[] = new String[];
+//
+//            Double aa[] = new Double[];
+//            Double bb[] = new Double[];
+//            Double cc[] = new Double[];
+//            Double dd[] = new Double[];
+//            String AA1[] = new String[];
+//            String AA2[] = new String[];
+//            String AA3[] = new String[];
+//            HashMap<String, Double> A1IntegrateResult = new HashMap<>();
+//            for (int i = 0; i < AA1.length; i++) {
+//                HashMap<String, Double> termsEdge = parseService.getTermsFromString(AA1[i]);
+//                // TODO: Проверять перед добавлением, подсмотреть, где-то уже было реализовано, сунуть в метод
+//                A1IntegrateResult.putAll(mathMatrixService.partialIntegrate(termsEdge, "yy", cc[i], dd[i]));
+//            }
+//            String Epr = "";
+//        }
+
         logService.debug("Считаем градиент");
         HashMap<String, HashMap<String, Double>> gradient = mathMatrixService.multithreadingGradient(afterIntegrate, coefficients);
 
         logService.debug("Считаем Гесса");
         HashMap<String, HashMap<String, Double>> hessian = new HashMap<>();
-        // TODO: Распараллелить
-        HashMap<String, Double> diff;
-        HashMap<String, Double> firstDerivativeResult;
-        String firstDiffVariable;
-        String secondDiffVar;
-        for (int i = 0; i < coefficientsArray.length; i++) {
-            firstDiffVariable = coefficientsArray[i];
-            firstDerivativeResult = gradient.get(firstDiffVariable);
-            for (int j = 0; j <= i; j++) {
-                secondDiffVar = coefficientsArray[j];
-                diff = mathMatrixService.matrixDerivative(util, firstDerivativeResult, secondDiffVar);
-                hessian.put(firstDiffVariable + "|" + secondDiffVar, diff);
-            }
-        }
+
+        coefficients
+                .parallelStream()
+                .forEach(iElement ->
+                        coefficients
+                                .parallelStream()
+                                .forEach(jElement ->
+                                        {
+                                            int i = coefficients.indexOf(iElement);
+                                            int j = coefficients.indexOf(jElement);
+                                            if (j <= i) {
+                                                hessian.put(iElement + "|" + jElement, mathMatrixService.matrixDerivative(util, gradient.get(iElement), jElement));
+                                            }
+                                        }
+                                )
+                );
+
         logService.debug("Метод Ньютона");
         String WOutput = util.eval("W").toString();
         try {
-            newtonMethodMatrix(WOutput, a, b, coefficientsArray, input.getEps(), qMax, qStep, stepCount, gradient, hessian);
+            newtonMethodMatrix(WOutput, a, b, input.getEps(), qMax, qStep, stepCount, input.getOptimizationBreak(), gradient, hessian);
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Метод Ньютона не отработал");
@@ -201,46 +246,56 @@ public class ModelingServiceImpl implements ModelingService {
     }
 
     @Override
-    public void newtonMethodMatrix(String w, Double a, Double b, String[] coefficients, double eps, double qMax, double qStep, int stepCount, HashMap<String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian) {
-        LinkedHashMap<String, Double> grail = new LinkedHashMap<>();
-        double[] computedGradient = new double[coefficients.length];
-        double[][] computedHessian = new double[coefficients.length][coefficients.length];
-        String firstDiffVar;
-        String secondDiffVar;
+    public void newtonMethodMatrix(String w, Double a, Double b, double eps, double qMax, double qStep, int stepCount, int optimizationBreak, HashMap<String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian) {
+        grail = new LinkedHashMap<>();
+        double[] computedGradient = new double[coefficients.size()];
+        double[][] computedHessian = new double[coefficients.size()][coefficients.size()];
         SimpleMatrix firstMatrix;
         SimpleMatrix secondMatrix;
         double[] multiply;
-        HashMap<String, Double> row;
         for (String coef : coefficients) {
             grail.put(coef, 0.0);
         }
-        double q = 0.0;
-        boolean firstStep;
 
+        double q = 0.0;
         while (q < qMax) {
             long qTime = System.nanoTime();
             double max = 10;
             int zz = 0;
-            firstStep = true;
+            int accuracyNotIncreasingCount = 0;
             while (zz < stepCount) {
                 zz++;
-                for (int i = 0; i < coefficients.length; i++) {
-                    row = gradient.get(coefficients[i]);
-                    for (String term : row.keySet()) {
-                        computedGradient[i] += computeTerm(term, row, q, grail);
-                    }
-                }
-                for (int i = 0; i < coefficients.length; i++) {
-                    firstDiffVar = coefficients[i];
-                    for (int j = 0; j <= i; j++) {
-                        secondDiffVar = coefficients[j];
-                        row = hessian.get(firstDiffVar + "|" + secondDiffVar);
-                        for (String term : row.keySet()) {
-                            computedHessian[i][j] += computeTerm(term, row, q, grail);
-                            computedHessian[j][i] = computedHessian[i][j];
-                        }
-                    }
-                }
+                double finalQ = q;
+                coefficients
+                        .parallelStream()
+                        .forEach(iElement ->
+                                computedGradient[coefficients.indexOf(iElement)] += gradient.get(iElement).entrySet()
+                                        .parallelStream()
+                                        .map(e -> computeTerm(e.getKey(), e.getValue(), finalQ, grail))
+                                        .reduce(0.0, Double::sum)
+                        );
+
+                coefficients
+                        .parallelStream()
+                        .forEach(iElement ->
+                                coefficients
+                                        .parallelStream()
+                                        .forEach(jElement ->
+                                                {
+                                                    int i = coefficients.indexOf(iElement);
+                                                    int j = coefficients.indexOf(jElement);
+                                                    if (j <= i) {
+//                                                        System.out.println(hessian.get(iElement + "|" + jElement));
+                                                        computedHessian[i][j] +=
+                                                                hessian.get(iElement + "|" + jElement).entrySet()
+                                                                        .parallelStream()
+                                                                        .map(e -> computeTerm(e.getKey(), e.getValue(), finalQ, grail))
+                                                                        .reduce(0.0, Double::sum);
+                                                        computedHessian[j][i] = computedHessian[i][j];
+                                                    }
+                                                }
+                                        )
+                        );
 
                 firstMatrix = new SimpleMatrix(computedHessian);
                 // xi+1 = xi - H(xi)^-1 * G(xi);
@@ -250,14 +305,26 @@ public class ModelingServiceImpl implements ModelingService {
                 multiply = firstMatrix.mult(secondMatrix.transpose()).getDDRM().data;
 
                 int t = 0;
+                double localMax = 0.0;
                 for (String key : grail.keySet()) {
                     double temp = Math.abs(grail.get(key) - multiply[t]);
-                    if (temp < max) {
-                        max = temp;
+                    if (temp > localMax) {
+                        localMax = temp;
                     }
                     t++;
                 }
-                if (max < eps && !firstStep) {
+                if (localMax < max) {
+                    accuracyNotIncreasingCount = 0;
+                    max = localMax;
+//                    System.out.println("Новая точность: " + max);
+                } else {
+                    accuracyNotIncreasingCount++;
+                }
+                if (accuracyNotIncreasingCount > optimizationBreak) {
+                    break;
+                }
+                if (max < eps) {
+//                    System.out.println("Вылетаем с точностью: " + max);
                     break;
                 }
                 t = 0;
@@ -265,10 +332,9 @@ public class ModelingServiceImpl implements ModelingService {
                     grail.replace(key, grail.get(key) - multiply[t]);
                     t++;
                 }
-                firstStep = false;
             }
-//            System.out.println("Шаг по q:" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
-
+//            System.out.println("Просчитали точку " + q + " за - " + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
+            qTime = System.nanoTime();
             String Woutput0 = StringUtils.replace(w, "xx", String.valueOf(a / 2));
             Woutput0 = StringUtils.replace(Woutput0, "yy", String.valueOf(b / 2));
             String Woutput1 = StringUtils.replace(w, "xx", String.valueOf(a / 4));
@@ -292,12 +358,12 @@ public class ModelingServiceImpl implements ModelingService {
             StaticStorage.modelServiceOutput.put(q, wOut);
 
             q += qStep;
+//            System.out.println("Посчитали W за - " + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - qTime));
         }
     }
 
     @Override
-    public Double computeTerm(String term, HashMap<String, Double> row, Double q, LinkedHashMap<String, Double> grail) {
-        Double computedTerm = row.get(term);
+    public Double computeTerm(String term, Double computedTerm, Double q, LinkedHashMap<String, Double> grail) {
         String factor;
         int splitIndex = 0;
         int degreeIndex;
@@ -331,13 +397,13 @@ public class ModelingServiceImpl implements ModelingService {
     private void defineA() {
         String A = "1";
         switch (shellIndex) {
+            case 0:
             case 1:
             case 2:
-            case 3:
                 A = "1";
                 break;
+            case 3:
             case 4:
-            case 5:
                 A = "r";
                 break;
         }
@@ -347,19 +413,19 @@ public class ModelingServiceImpl implements ModelingService {
     private void defineB() {
         String B = "1";
         switch (shellIndex) {
-            case 1:
+            case 0:
                 B = "1";
                 break;
-            case 2:
+            case 1:
                 B = "r";
                 break;
-            case 3:
+            case 2:
                 B = "xx * " + Math.sin(theta);
                 break;
-            case 4:
+            case 3:
                 B = "r * Sin(xx)";
                 break;
-            case 5:
+            case 4:
                 B = d + " + r * Sin(xx)";
                 break;
         }
@@ -370,15 +436,15 @@ public class ModelingServiceImpl implements ModelingService {
     private void defineKx() {
         String kx = "1 / r";
         switch (shellIndex) {
-            case 1:
+            case 0:
                 kx = "1 / " + r1;
                 break;
+            case 1:
             case 2:
-            case 3:
                 kx = "0";
                 break;
+            case 3:
             case 4:
-            case 5:
                 kx = "1 / r";
                 break;
         }
@@ -388,15 +454,15 @@ public class ModelingServiceImpl implements ModelingService {
     private void defineKy() {
         String ky = "1 / r";
         switch (shellIndex) {
-            case 4:
+            case 3:
+            case 0:
             case 1:
-            case 2:
                 ky = "1 / " + r2;
                 break;
-            case 3:
+            case 2:
                 ky = "1 / (xx * " + Math.tan(theta) + ")";
                 break;
-            case 5:
+            case 4:
                 ky = "Sin(xx) / (" + d + "+ r * Sin(xx))";
                 break;
         }
@@ -453,5 +519,51 @@ public class ModelingServiceImpl implements ModelingService {
         util.eval("W := " + W);
         util.eval("PsiX := " + PsiX);
         util.eval("PsiY := " + PsiY);
+    }
+
+    public class ForkJoinSumCalculator extends RecursiveTask<Double> {
+
+        private final double q;
+        private final LinkedHashMap<String, Double> row;
+        public static final double THRESHOLD = 1;
+
+        private ForkJoinSumCalculator(LinkedHashMap<String, Double> row, Double q) {
+            this.q = q;
+            this.row = row;
+        }
+
+        @Override
+        protected Double compute() {
+            int size = row.size();
+            if (size <= THRESHOLD) {
+                return computeSequentially();
+            }
+            LinkedHashMap<String, Double> leftPartOfRow = new LinkedHashMap<>();
+            LinkedHashMap<String, Double> rightPartOfRow = new LinkedHashMap<>();
+            int i = 0;
+            for (String term : row.keySet()) {
+                if (i < size / 2) {
+                    leftPartOfRow.put(term, row.get(term));
+                } else {
+                    rightPartOfRow.put(term, row.get(term));
+                }
+                i++;
+            }
+
+            ForkJoinSumCalculator leftTask = new ForkJoinSumCalculator(leftPartOfRow, q);
+            leftTask.fork();
+            ForkJoinSumCalculator rightTask = new ForkJoinSumCalculator(rightPartOfRow, q);
+            double rightResult = rightTask.compute();
+            double leftResult = leftTask.join();
+            return leftResult + rightResult;
+        }
+
+        private double computeSequentially() {
+            double sum = 0;
+            for (String key : row.keySet()) {
+                sum += computeTerm(key, row.get(key), q, grail);
+            }
+            return sum;
+        }
     }
 }
