@@ -126,14 +126,19 @@ class MathMatrixServiceImplTest {
     @Test
     void partialIntegrate() {
         HashMap<String, Double> in = new HashMap<>();
-        in.put("v12", 10.0);
-        in.put("v12^2", -10.0);
-        in.put("psiy12", 10.0);
+        in.put("u11", -2.0);
+        in.put("v11", 3.0);
+        in.put("psiy11", -4.0);
+        in.put("u11*v12", 2.3);
+        in.put("number", 0.5);
 
         HashMap<String, Double> expected = new HashMap<>();
-        expected.put("number", -1458.333333333333);
-        expected.put("psiy12", 250.0);
-        assertEquals(expected, mathMatrixService.partialIntegrate(in, "v12", 0, 5));
+        expected.put("number", -3.0);
+        expected.put("v12", 4.6);
+        expected.put("v11", 6.0);
+        expected.put("psiy11", -8.0);
+
+        assertEquals(expected, mathMatrixService.partialIntegrate(in, "u11", 0, 2));
 
     }
 }

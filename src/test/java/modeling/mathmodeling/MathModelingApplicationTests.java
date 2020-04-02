@@ -45,7 +45,7 @@ class MathModelingApplicationTests {
         dto.setA1(5.4);
         dto.setB0(0);
         dto.setB1(5.4);
-        dto.setN(1);
+        dto.setN(5);
         dto.setE1(210000);
         dto.setE2(210000);
         dto.setMu12(0.3);
@@ -53,11 +53,12 @@ class MathModelingApplicationTests {
         dto.setH(0.09);
         dto.setZ(-0.045);
         dto.setK(0.8333333);
-        dto.setG(80769.23076923077);
-        dto.setQMax(3.1);
+        dto.setG(33000);
+        dto.setQMax(3.3);
         dto.setQStep(0.01);
-        dto.setStepCount(1);
-
+        dto.setStepCount(50);
+        dto.setOptimizationBreak(50);
+        dto.setEps(0.000001);
         modelingService.model(dto);
     }
 

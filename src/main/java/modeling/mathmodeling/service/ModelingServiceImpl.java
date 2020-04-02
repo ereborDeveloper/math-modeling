@@ -269,7 +269,7 @@ public class ModelingServiceImpl implements ModelingService {
                 coefficients
                         .parallelStream()
                         .forEach(iElement ->
-                                computedGradient[coefficients.indexOf(iElement)] += gradient.get(iElement).entrySet()
+                                computedGradient[coefficients.indexOf(iElement)] = gradient.get(iElement).entrySet()
                                         .parallelStream()
                                         .map(e -> computeTerm(e.getKey(), e.getValue(), finalQ, grail))
                                         .reduce(0.0, Double::sum)
@@ -285,13 +285,18 @@ public class ModelingServiceImpl implements ModelingService {
                                                     int i = coefficients.indexOf(iElement);
                                                     int j = coefficients.indexOf(jElement);
                                                     if (j <= i) {
-//                                                        System.out.println(hessian.get(iElement + "|" + jElement));
-                                                        computedHessian[i][j] +=
-                                                                hessian.get(iElement + "|" + jElement).entrySet()
-                                                                        .parallelStream()
-                                                                        .map(e -> computeTerm(e.getKey(), e.getValue(), finalQ, grail))
-                                                                        .reduce(0.0, Double::sum);
-                                                        computedHessian[j][i] = computedHessian[i][j];
+                                                        try {
+                                                            computedHessian[i][j] =
+                                                                    hessian.get(iElement + "|" + jElement).entrySet()
+                                                                            .parallelStream()
+                                                                            .map(e -> computeTerm(e.getKey(), e.getValue(), finalQ, grail))
+                                                                            .reduce(0.0, Double::sum);
+                                                            computedHessian[j][i] = computedHessian[i][j];
+                                                        }
+                                                        catch (Exception e)
+                                                        {
+//                                                            e.printStackTrace();
+                                                        }
                                                     }
                                                 }
                                         )
@@ -324,7 +329,7 @@ public class ModelingServiceImpl implements ModelingService {
                     break;
                 }
                 if (max < eps) {
-//                    System.out.println("Вылетаем с точностью: " + max);
+                    System.out.println("Вылетаем с точностью: " + max);
                     break;
                 }
                 t = 0;
@@ -566,4 +571,5 @@ public class ModelingServiceImpl implements ModelingService {
             return sum;
         }
     }
+
 }
