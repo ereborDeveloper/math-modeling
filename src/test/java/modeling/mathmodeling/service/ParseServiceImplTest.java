@@ -243,12 +243,9 @@ class ParseServiceImplTest {
 
     @Test
     void splitAndSkip_when_then() {
-        String in = "57*(2+34) - sin(x)";
+        String in = "57*(2+34)-sin(x)";
         ArrayList<String> expected = new ArrayList<>();
-        expected.add("0.0012193263222069805");
-        expected.add("v11^2.0");
-        expected.add("Sin(0.5817764173314433*xx)^2.0");
-        expected.add("Sin(0.5817764173314433*yy)^2.0");
+        expected.add(in);
         assertEquals(expected, parseService.splitAndSkipInsideBrackets(in, '+'));
     }
 
@@ -286,31 +283,6 @@ class ParseServiceImplTest {
 
         in = "76.92307692307692*(0.5817764173314433*w11*Cos(0.5817764173314433*yy)*Sin(0.5817764173314433*xx)+1.7453292519943298*w12*Cos(1.7453292519943298*yy)*Sin(0.5817764173314433*xx)+0.5817764173314433*w21*Cos(0.5817764173314433*yy)*Sin(1.7453292519943298*xx)+1.7453292519943298*w22*Cos(1.7453292519943298*yy)*Sin(1.7453292519943298*xx))^2.0*w12*x3(1.0)*y3(2.0)";
 
-    }
-
-    @Test
-    void expandDegreeAndReplaceTerm() {
-        String in = "psix^2.0+abs";
-        assertEquals("Cos(x)^2+2*Cos(x)*tg(x)+tg(x)^2+abs", parseService.expandDegreeAndReplaceTerm(in, "psix", "cos(x) + tg(x)"));
-    }
-
-    @Test
-    void expandDegreeAndReplaceTerm_multiple() {
-        String in = "psix^2.0 + psix^3.0";
-        assertEquals("a^2+2*a*Cos(x)+Cos(x)^2+a^3+3*a^2*Cos(x)+3*a*Cos(x)^2+Cos(x)^3", parseService.expandAllDegreesAndReplaceTerm(in, "psix", "cos(x) + a"));
-    }
-
-    @Test
-    void expandDegreeAndReplaceTerm_multiple_and_coef() {
-        String in = "2*psix^2.0 + psix^3.0";
-        assertEquals("2*a^2+4*a*Cos(x)+2*Cos(x)^2+a^3+3*a^2*Cos(x)+3*a*Cos(x)^2+Cos(x)^3", parseService.expandAllDegreesAndReplaceTerm(in, "psix", "cos(x) + a"));
-    }
-
-    @Test
-    void expandDegreeAndReplaceTerm_full() {
-        String in = "+7.0*dpsixdx^2+2.10*dpsixdx*dpsiydy";
-        String out = parseService.expandAllDegreesAndReplaceTerm(in, "dpsixdx", "bubble");
-        assertEquals("+7.0*bubble*bubble+2.10*bubble*dpsiydy", out);
     }
 
     @Test

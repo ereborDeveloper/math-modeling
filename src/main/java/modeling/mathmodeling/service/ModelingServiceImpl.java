@@ -10,7 +10,6 @@ import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -24,9 +23,6 @@ public class ModelingServiceImpl implements ModelingService {
 
     final
     ParseService parseService;
-
-    final
-    MathService mathService;
 
     final
     MathMatrixService mathMatrixService;
@@ -48,12 +44,19 @@ public class ModelingServiceImpl implements ModelingService {
 
     LinkedHashMap<String, Double> grail;
 
-    public ModelingServiceImpl(PyMathService pyMathService, ParseService parseService, MathService mathService, MathMatrixService mathMatrixService, LogService logService) {
+    public ModelingServiceImpl(PyMathService pyMathService, ParseService parseService, MathMatrixService mathMatrixService, LogService logService) {
         this.pyMathService = pyMathService;
         this.parseService = parseService;
-        this.mathService = mathService;
         this.mathMatrixService = mathMatrixService;
         this.logService = logService;
+    }
+
+    public String edge(Double F, Double S, Double J) {
+        return " (" + F + " * (G * (eX + mu21 * eY) * eX + G * (eY + mu12 * eX) * eY + G * gammaXY * gammaXY + " +
+                "G * k * (PsiX - Theta1) * (PsiX - Theta1) + G * k * (PsiY - Theta2) * (PsiY - Theta2)) + " +
+                S + " * (G * (Chi1 + mu21 * Chi2) * eX + " +
+                "G * (Chi2 + mu12 * Chi1) * eY + G * (eX + mu21 * eY) * Chi1 + G * (eY + mu12 * eX) * Chi2 + 4 * G * Chi12 * gammaXY) + " +
+                J + "* (G * (Chi1 + mu21 * Chi2) * Chi1 + G * (Chi2 + mu12 * Chi1) * Chi2 + 4 * G * Chi12 * Chi12)) * A * B";
     }
 
     @Override
@@ -120,7 +123,6 @@ public class ModelingServiceImpl implements ModelingService {
 
         defineApprox(a, b);
 
-
         util.eval("Theta1 := -(D(W, xx) / A + kx * U)");
         util.eval("Theta2 := -(D(W, yy) / B + ky * V)");
 
@@ -153,7 +155,6 @@ public class ModelingServiceImpl implements ModelingService {
         util.eval("QX := G * (PsiX - Theta1) * k * h");
         util.eval("QY := G * k * h * (PsiY - Theta2)");
 
-
         String Es = "0.5 * NX * eX "
                 +
                 " + 0.5 * NY * eY + 0.25 * NXY * gammaXY + 0.25 * NYX * gammaXY + " +
@@ -161,11 +162,8 @@ public class ModelingServiceImpl implements ModelingService {
                 "0.5 * Qx * PsiX - 0.5 * QX * Theta1 "
                 + "+ 0.5 * QY * PsiY - 0.5 * QY * Theta2 - q * W * A * B";
 
-
         Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
 
-        logService.debug("Раскрытие степеней");
-        Es = parseService.expandAllDegrees(Es);
         logService.debug("Отправляем запрос");
         Es = pyMathService.expand(Es);
 
@@ -176,40 +174,107 @@ public class ModelingServiceImpl implements ModelingService {
         HashMap<String, Double> afterIntegrate = mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
 
         // Ребро
-//        if (input.isEdgeEnabled()) {
-//            logService.debug("Считаем ребро");
-//
-//            String hi[] = new String[];
-//            String hj[] = new String[];
-//            String hij[] = new String[];
-//
-//            String Fi[] = new String[];
-//            String Fj[] = new String[];
-//            String Fij[] = new String[];
-//
-//            String Ji[] = new String[];
-//            String Jj[] = new String[];
-//            String Jij[] = new String[];
-//
-//            String Si[] = new String[];
-//            String Sj[] = new String[];
-//            String Sij[] = new String[];
-//
-//            Double aa[] = new Double[];
-//            Double bb[] = new Double[];
-//            Double cc[] = new Double[];
-//            Double dd[] = new Double[];
-//            String AA1[] = new String[];
-//            String AA2[] = new String[];
-//            String AA3[] = new String[];
-//            HashMap<String, Double> A1IntegrateResult = new HashMap<>();
-//            for (int i = 0; i < AA1.length; i++) {
-//                HashMap<String, Double> termsEdge = parseService.getTermsFromString(AA1[i]);
-//                // TODO: Проверять перед добавлением, подсмотреть, где-то уже было реализовано, сунуть в метод
-//                A1IntegrateResult.putAll(mathMatrixService.partialIntegrate(termsEdge, "yy", cc[i], dd[i]));
-//            }
-//            String Epr = "";
-//        }
+        int nn = 1;
+        int mm = 1;
+        if (input.isEdgeEnabled()) {
+            logService.debug("Считаем ребро");
+
+            Double ri = 2 * h;
+            Double rj = 2 * h;
+
+            Double hi[] = new Double[nn];
+            Double hj[] = new Double[mm];
+            Double hij[][] = new Double[nn][mm];
+
+            Double countXj = a / (mm + 1);
+            Double countYi = b / (nn + 1);
+
+            Double aa[] = new Double[mm];
+            Double bb[] = new Double[mm];
+            Double cc[] = new Double[nn];
+            Double dd[] = new Double[nn];
+
+            for (int i = 0; i < nn; i++) {
+                hi[i] = 3 * h;
+                cc[i] = countYi * (i + 1) - ri;
+                dd[i] = countYi * (i + 1) + ri;
+            }
+
+            for (int j = 0; j < mm; j++) {
+                hj[j] = 3 * h;
+                aa[j] = countXj * (j + 1) - rj;
+                bb[j] = countXj * (j + 1) + rj;
+            }
+
+            for (int i = 0; i < hi.length; i++) {
+                for (int j = 0; j < hj.length; j++) {
+                    hij[i][j] = 3 * h;
+                }
+            }
+
+            System.out.println(Arrays.toString(aa));
+
+            HashMap<String, Double> A1Terms = new HashMap<>();
+            HashMap<String, Double> A2Terms = new HashMap<>();
+            HashMap<String, Double> A3Terms = new HashMap<>();
+
+            for (int i = 0; i < nn; i++) {
+                Double Si = hi[i] * (h + hi[i]) / 2;
+                Double Ji = 0.25 * h * h * hi[i] + 0.5 * h * Math.pow(hi[i], 2) + Math.pow(hi[i], 3) / 3;
+                Double Fi = hi[i];
+                String temp = "0.5 * " + edge(Fi, Si, Ji);
+                String evaluated = util.eval(temp).toString().replace("\n", "");
+                evaluated = pyMathService.expand(evaluated);
+                A1Terms.putAll(mathMatrixService.multithreadingIntegrate(parseService.getTermsFromString(evaluated), "yy", cc[i], dd[i]));
+                System.out.println(A1Terms);
+            }
+            for (int j = 0; j < mm; j++) {
+                Double Sj = hj[j] * (h + hj[j]) / 2;
+                Double Jj = 0.25 * h * h * hj[j] + 0.5 * h * Math.pow(hj[j], 2) + Math.pow(hj[j], 3) / 3;
+                Double Fj = hj[j];
+                String temp = "0.5 * " + edge(Fj, Sj, Jj);
+                String evaluated = util.eval(temp).toString().replace("\n", "");
+                evaluated = pyMathService.expand(evaluated);
+                A2Terms.putAll(mathMatrixService.multithreadingIntegrate(parseService.getTermsFromString(evaluated), "xx", aa[j], bb[j]));
+            }
+            for (int i = 0; i < nn; i++) {
+                for (int j = 0; j < mm; j++) {
+                    Double Sij = hij[i][j] * (h + hij[i][j]) / 2;
+                    Double Jij = 0.25 * h * h * hij[i][j] + 0.5 * h * Math.pow(hij[i][j], 2) + Math.pow(hij[i][j], 3) / 3;
+                    Double Fij = hij[i][j];
+                    String temp = "- A * B * " + edge(Fij, Sij, Jij);
+                    String evaluated = util.eval(temp).toString().replace("\n", "");
+                    evaluated = pyMathService.expand(evaluated);
+                    A3Terms.putAll(mathMatrixService.multithreadingDoubleIntegrate(parseService.getTermsFromString(evaluated), "xx", aa[j], bb[j], "yy", cc[i], dd[i]));
+                }
+            }
+
+            HashMap<String, Double> Epr = mathMatrixService.multithreadingIntegrate(A1Terms, "xx", a1, a);
+            mathMatrixService.multithreadingIntegrate(A2Terms, "yy", 0.0, b).forEach((key, value) -> {
+                if (Epr.containsKey(key)) {
+                    Epr.put(key, value + Epr.get(key));
+                } else {
+                    Epr.put(key, value);
+                }
+            });
+
+            A3Terms.forEach((key, value) -> {
+                if (Epr.containsKey(key)) {
+                    Epr.put(key, value + Epr.get(key));
+                } else {
+                    Epr.put(key, value);
+                }
+            });
+
+            Epr.forEach((key, value) -> {
+                if (afterIntegrate.containsKey(key)) {
+                    afterIntegrate.put(key, value + afterIntegrate.get(key));
+                } else {
+                    afterIntegrate.put(key, value);
+                }
+            });
+        }
+
 
         logService.debug("Считаем градиент");
         HashMap<String, HashMap<String, Double>> gradient = mathMatrixService.multithreadingGradient(afterIntegrate, coefficients);
@@ -246,7 +311,9 @@ public class ModelingServiceImpl implements ModelingService {
     }
 
     @Override
-    public void newtonMethodMatrix(String w, Double a, Double b, double eps, double qMax, double qStep, int stepCount, int optimizationBreak, HashMap<String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian) {
+    public void newtonMethodMatrix(String w, Double a, Double b, double eps, double qMax, double qStep,
+                                   int stepCount, int optimizationBreak, HashMap<
+            String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian) {
         grail = new LinkedHashMap<>();
         double[] computedGradient = new double[coefficients.size()];
         double[][] computedHessian = new double[coefficients.size()][coefficients.size()];
@@ -278,28 +345,26 @@ public class ModelingServiceImpl implements ModelingService {
                 coefficients
                         .parallelStream()
                         .forEach(iElement ->
-                                coefficients
-                                        .parallelStream()
-                                        .forEach(jElement ->
-                                                {
-                                                    int i = coefficients.indexOf(iElement);
-                                                    int j = coefficients.indexOf(jElement);
-                                                    if (j <= i) {
-                                                        try {
-                                                            computedHessian[i][j] =
-                                                                    hessian.get(iElement + "|" + jElement).entrySet()
-                                                                            .parallelStream()
-                                                                            .map(e -> computeTerm(e.getKey(), e.getValue(), finalQ, grail))
-                                                                            .reduce(0.0, Double::sum);
-                                                            computedHessian[j][i] = computedHessian[i][j];
-                                                        }
-                                                        catch (Exception e)
+                                        coefficients
+                                                .parallelStream()
+                                                .forEach(jElement ->
                                                         {
+                                                            int i = coefficients.indexOf(iElement);
+                                                            int j = coefficients.indexOf(jElement);
+                                                            if (j <= i) {
+                                                                try {
+                                                                    computedHessian[i][j] =
+                                                                            hessian.get(iElement + "|" + jElement).entrySet()
+                                                                                    .parallelStream()
+                                                                                    .map(e -> computeTerm(e.getKey(), e.getValue(), finalQ, grail))
+                                                                                    .reduce(0.0, Double::sum);
+                                                                    computedHessian[j][i] = computedHessian[i][j];
+                                                                } catch (Exception e) {
 //                                                            e.printStackTrace();
+                                                                }
+                                                            }
                                                         }
-                                                    }
-                                                }
-                                        )
+                                                )
                         );
 
                 firstMatrix = new SimpleMatrix(computedHessian);

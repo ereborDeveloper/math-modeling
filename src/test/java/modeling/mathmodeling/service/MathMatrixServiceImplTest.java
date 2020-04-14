@@ -141,4 +141,30 @@ class MathMatrixServiceImplTest {
         assertEquals(expected, mathMatrixService.partialIntegrate(in, "u11", 0, 2));
 
     }
+
+    @Test
+    void partialIntegrate_number() {
+        HashMap<String, Double> in = new HashMap<>();
+        in.put("number", 0.5);
+
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("number", 1.0);
+
+        assertEquals(expected, mathMatrixService.partialIntegrate(in, "u11", 0, 2));
+    }
+
+    @Test
+    void multithreadingIntegrate() {
+        HashMap<String, Double> in = new HashMap<>();
+        in.put("v12*x", 10.0);
+        in.put("v12^2", -10.0);
+        in.put("psiy12", 10.0);
+
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("number", -416.66666666666663);
+        expected.put("psiy12", 50.0);
+        expected.put("x", 125.0);
+        assertEquals(expected, mathMatrixService.multithreadingIntegrate(in, "v12", 0, 5));
+
+    }
 }

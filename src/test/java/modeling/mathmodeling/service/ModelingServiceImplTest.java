@@ -25,9 +25,6 @@ class ModelingServiceImplTest {
     MathMatrixService mathMatrixService;
 
     @Autowired
-    MathService mathService;
-
-    @Autowired
     ParseService parseService;
 
     @Autowired

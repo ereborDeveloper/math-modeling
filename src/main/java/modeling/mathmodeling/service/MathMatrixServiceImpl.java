@@ -379,4 +379,49 @@ public class MathMatrixServiceImpl implements MathMatrixService {
         return result;
     }
 
+    @Override
+    public HashMap<String, Double> multithreadingIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX) {
+        HashMap<String, Double> result = new HashMap<>();
+        ConcurrentLinkedQueue<HashMap<String, Double>> queue = new ConcurrentLinkedQueue<>();
+        int termsCount = expandedTerms.size();
+        int blockSize = termsCount / getAvailableCores();
+
+        ExecutorService executorService = Executors.newWorkStealingPool();
+
+        for (int i = 0; i < getAvailableCores(); i++) {
+            List<String> partialKeys;
+            if (i == getAvailableCores() - 1) {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, termsCount);
+            } else {
+                partialKeys = new ArrayList<>(expandedTerms.keySet()).subList(blockSize * i, blockSize * (i + 1));
+            }
+            HashMap<String, Double> partialTerms = new HashMap<>();
+            for (String key : partialKeys) {
+                partialTerms.put(key, expandedTerms.get(key));
+            }
+            // adding terms to runnable
+            Runnable task = () -> {
+                queue.add(partialIntegrate(partialTerms, variableX, fromX, toX));
+            };
+            executorService.execute(task);
+        }
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(60, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        for (HashMap<String, Double> entry : queue) {
+            for (String key : entry.keySet()) {
+                Double currentValue = result.get(key);
+                if (currentValue != null) {
+                    result.put(key, currentValue + entry.get(key));
+                } else {
+                    result.put(key, entry.get(key));
+                }
+            }
+        }
+        return result;
+    }
+
 }
