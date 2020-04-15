@@ -7,11 +7,14 @@ import org.matheclipse.core.basic.Config;
 import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
@@ -27,7 +30,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
 
 
     @Override
-    public HashMap<String, HashMap<String, Double>> multithreadingGradient(HashMap<String, Double> expandedTerms, LinkedList<String> variables) {
+    public HashMap<String, HashMap<String, Double>> multithreadingGradient(Map<String, Double> expandedTerms, LinkedList<String> variables) {
         HashMap<String, HashMap<String, Double>> gradient = new HashMap<>();
         ExecutorService executorService = Executors.newWorkStealingPool();
         for (String variable : variables) {
@@ -47,8 +50,11 @@ public class MathMatrixServiceImpl implements MathMatrixService {
     }
 
     @Override
-    public HashMap<String, Double> partialDerivative(ExprEvaluator util, HashMap<String, Double> terms, String variable) {
+    public HashMap<String, Double> partialDerivative(ExprEvaluator util, Map<String, Double> terms, String variable) {
         HashMap<String, Double> output = new HashMap<>();
+        ArrayList<String> factorsToDerivative = new ArrayList<>();
+        ArrayList<String> numericFactors = new ArrayList<>();
+        List<String> factors;
         if (terms.isEmpty()) {
             return output;
         }
@@ -57,9 +63,9 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             if (!term.contains(variable)) {
                 continue;
             }
-            ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
-            ArrayList<String> factorsToDerivative = new ArrayList<>();
-            ArrayList<String> numericFactors = new ArrayList<>();
+            factors = parseService.splitAndSkipInsideBrackets(term, '*');
+            factorsToDerivative.clear();
+            numericFactors.clear();
 
             double numeric = terms.get(term);
 
@@ -107,17 +113,16 @@ public class MathMatrixServiceImpl implements MathMatrixService {
     }
 
     @Override
-    public HashMap<String, Double> matrixDerivative(ExprEvaluator util, HashMap<String, Double> terms, String variable) {
+    public HashMap<String, Double> matrixDerivative(ExprEvaluator util, Map<String, Double> terms, String variable) {
         HashMap<String, Double> output = new HashMap<>();
-        ArrayList<String> factors;
+        List<String> factors;
         String termAfterDiff;
-        ArrayList<String> factorsToDerivative;
-        ArrayList<String> numericFactors;
+        ArrayList<String> factorsToDerivative = new ArrayList<>();
+        ArrayList<String> numericFactors = new ArrayList<>();
         double numericValue;
         String outputKey;
 
-        if(terms == null)
-        {
+        if (terms == null) {
             return output;
         }
 
@@ -127,8 +132,8 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             }
             termAfterDiff = util.eval("D(" + term + ", " + variable + ")").toString();
             factors = parseService.splitAndSkipInsideBrackets(termAfterDiff, '*');
-            factorsToDerivative = new ArrayList<>();
-            numericFactors = new ArrayList<>();
+            factorsToDerivative.clear();
+            numericFactors.clear();
             numericValue = terms.get(term);
             filterFactorsByVariable(variable, factors, factorsToDerivative, numericFactors);
             for (String factor : numericFactors) {
@@ -154,7 +159,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
         return output;
     }
 
-    public void filterFactorsByVariable(String variable, ArrayList<String> factors, ArrayList<String> factorsToDerivative, ArrayList<String> numericFactors) {
+    public void filterFactorsByVariable(String variable, List<String> factors, List<String> factorsToDerivative, List<String> numericFactors) {
         factorsToDerivative.clear();
         numericFactors.clear();
         for (String factor : factors) {
@@ -168,8 +173,22 @@ public class MathMatrixServiceImpl implements MathMatrixService {
         factors.removeAll(numericFactors);
     }
 
+    private String integralStorageMask(String key, Double from, Double to) {
+        return key
+                + "["
+                + from
+                + ";"
+                + to
+                + "]";
+    }
+
     @Override
-    public HashMap<String, Double> partialDoubleIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+    public HashMap<String, Double> partialDoubleIntegrate(Map<String, Double> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+        ArrayList<String> numericFactors = new ArrayList<>();
+        ArrayList<String> result = new ArrayList<>();
+        ArrayList<String> factorsToIntegrateX = new ArrayList<>();
+        ArrayList<String> factorsToIntegrateY = new ArrayList<>();
+
         int i = 0;
         int size = expandedTerms.size();
         HashMap<String, Double> output = new HashMap<>();
@@ -183,13 +202,13 @@ public class MathMatrixServiceImpl implements MathMatrixService {
                 continue;
             }
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
-            ArrayList<String> factorsToIntegrateX = new ArrayList<>();
+            factorsToIntegrateX.clear();
             for (String factor : factors) {
                 if (factor.contains(variableX)) {
                     factorsToIntegrateX.add(factor);
                 }
             }
-            ArrayList<String> factorsToIntegrateY = new ArrayList<>();
+            factorsToIntegrateY.clear();
             for (String factor : factors) {
                 if (factor.contains(variableY)) {
                     factorsToIntegrateY.add(factor);
@@ -198,41 +217,42 @@ public class MathMatrixServiceImpl implements MathMatrixService {
             factors.removeAll(factorsToIntegrateX);
             factors.removeAll(factorsToIntegrateY);
 
-            ArrayList<String> result = new ArrayList<>();
+            result.clear();
             if (!factorsToIntegrateX.isEmpty()) {
-                String toIntegrate = String.join("*", factorsToIntegrateX);
-                if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
+                String toIntegrate = StringUtils.replace(String.join("*", factorsToIntegrateX), " ", "");
+                String storageMask = integralStorageMask(toIntegrate, fromX, toX);
+                if (!StaticStorage.alreadyComputedIntegrals.containsKey(storageMask)) {
                     String writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
-                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    StaticStorage.alreadyComputedIntegrals.put(storageMask, writeableResult);
                     result.add(writeableResult);
                     if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                         continue;
                     }
                 } else {
-                    result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
+                    result.add(StaticStorage.alreadyComputedIntegrals.get(storageMask));
                 }
             } else {
                 result.add(String.valueOf(toX - fromX));
             }
             if (!factorsToIntegrateY.isEmpty()) {
-                String toIntegrate = String.join("*", factorsToIntegrateY);
-                if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
+                String toIntegrate = StringUtils.replace(String.join("*", factorsToIntegrateY), " ", "");
+                String storageMask = integralStorageMask(toIntegrate, fromY, toY);
+                if (!StaticStorage.alreadyComputedIntegrals.containsKey(storageMask)) {
                     String writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableY + ", " + fromY + ", " + toY + "})").toString();
-                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    StaticStorage.alreadyComputedIntegrals.put(storageMask, writeableResult);
                     result.add(writeableResult);
                 } else {
-                    result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
+                    result.add(StaticStorage.alreadyComputedIntegrals.get(storageMask));
                 }
             } else {
                 result.add(String.valueOf(toY - fromY));
             }
-
             String resultStr = String.join("*", result);
             if (StringUtils.contains(resultStr, "E-")) {
                 continue;
             }
             result.addAll(factors);
-            ArrayList<String> numericFactors = new ArrayList<>();
+            numericFactors.clear();
             double numeric = expandedTerms.get(term);
             for (String factor : result) {
                 if (NumberUtils.isCreatable(factor)) {
@@ -263,19 +283,22 @@ public class MathMatrixServiceImpl implements MathMatrixService {
     }
 
     @Override
-    public HashMap<String, Double> partialIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX) {
+    public HashMap<String, Double> partialIntegrate(Map<String, Double> expandedTerms, String variableX, double fromX, double toX) {
         HashMap<String, Double> output = new HashMap<>();
+        ArrayList<String> result = new ArrayList<>();
         ExprEvaluator util = new ExprEvaluator(true, 50000);
         Config.EXPLICIT_TIMES_OPERATOR = true;
         Config.DEFAULT_ROOTS_CHOP_DELTA = 1.0E-40D;
         Config.DOUBLE_EPSILON = 1.0E-40D;
+        ArrayList<String> numericFactors = new ArrayList<>();
+        ArrayList<String> factorsToIntegrateX = new ArrayList<>();
 
         for (String term : expandedTerms.keySet()) {
             if (StringUtils.replace(term, "\n", "").trim().length() == 0) {
                 continue;
             }
             ArrayList<String> factors = parseService.splitAndSkipInsideBrackets(term, '*');
-            ArrayList<String> factorsToIntegrateX = new ArrayList<>();
+            factorsToIntegrateX.clear();
             for (String factor : factors) {
                 if (factor.contains(variableX)) {
                     factorsToIntegrateX.add(factor);
@@ -284,18 +307,19 @@ public class MathMatrixServiceImpl implements MathMatrixService {
 
             factors.removeAll(factorsToIntegrateX);
 
-            ArrayList<String> result = new ArrayList<>();
+            result.clear();
             if (!factorsToIntegrateX.isEmpty()) {
-                String toIntegrate = String.join("*", factorsToIntegrateX);
-                if (!StaticStorage.alreadyComputedIntegrals.containsKey(toIntegrate)) {
+                String toIntegrate = StringUtils.replace(String.join("*", factorsToIntegrateX), " ", "");
+                String storageMask = integralStorageMask(toIntegrate, fromX, toX);
+                if (!StaticStorage.alreadyComputedIntegrals.containsKey(storageMask)) {
                     String writeableResult = util.eval("NIntegrate(" + toIntegrate + ", {" + variableX + ", " + fromX + ", " + toX + "})").toString();
-                    StaticStorage.alreadyComputedIntegrals.put(toIntegrate, writeableResult);
+                    StaticStorage.alreadyComputedIntegrals.put(storageMask, writeableResult);
                     result.add(writeableResult);
                     if (writeableResult.contains("*0.0*") || writeableResult.contains("*(0.0)*") || writeableResult.contains("0.0*")) {
                         continue;
                     }
                 } else {
-                    result.add(StaticStorage.alreadyComputedIntegrals.get(toIntegrate));
+                    result.add(StaticStorage.alreadyComputedIntegrals.get(storageMask));
                 }
             } else {
                 result.add(String.valueOf(toX - fromX));
@@ -306,7 +330,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
                 continue;
             }
             result.addAll(factors);
-            ArrayList<String> numericFactors = new ArrayList<>();
+            numericFactors.clear();
             double numeric = expandedTerms.get(term);
             for (String factor : result) {
                 if (NumberUtils.isCreatable(factor)) {
@@ -335,7 +359,17 @@ public class MathMatrixServiceImpl implements MathMatrixService {
     }
 
     @Override
-    public HashMap<String, Double> multithreadingDoubleIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
+    public Map<String, Double> multiply(Map<String, Double> terms, Double multiplier) {
+        return terms.entrySet().parallelStream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue() * multiplier));
+    }
+
+    @Override
+    public Map<String, Double> replace(Map<String, Double> terms, String from, String to) {
+        return terms.entrySet().parallelStream().collect(Collectors.toMap(e -> StringUtils.replace(e.getKey(), from, to), e -> e.getValue()));
+    }
+
+    @Override
+    public HashMap<String, Double> multithreadingDoubleIntegrate(Map<String, Double> expandedTerms, String variableX, double fromX, double toX, String variableY, double fromY, double toY) {
         HashMap<String, Double> result = new HashMap<>();
         ConcurrentLinkedQueue<HashMap<String, Double>> queue = new ConcurrentLinkedQueue<>();
         int termsCount = expandedTerms.size();
@@ -380,7 +414,7 @@ public class MathMatrixServiceImpl implements MathMatrixService {
     }
 
     @Override
-    public HashMap<String, Double> multithreadingIntegrate(HashMap<String, Double> expandedTerms, String variableX, double fromX, double toX) {
+    public HashMap<String, Double> multithreadingIntegrate(Map<String, Double> expandedTerms, String variableX, double fromX, double toX) {
         HashMap<String, Double> result = new HashMap<>();
         ConcurrentLinkedQueue<HashMap<String, Double>> queue = new ConcurrentLinkedQueue<>();
         int termsCount = expandedTerms.size();

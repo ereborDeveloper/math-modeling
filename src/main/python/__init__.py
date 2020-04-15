@@ -2,6 +2,7 @@ from flask import Flask
 from flask import request
 import symengine as sm
 from sympy import *
+import time
 
 app = Flask(__name__)
 
@@ -27,6 +28,7 @@ def expand():
     istr = request.form.get("input")
     estr = str(sm.expand(istr))
     rstr = estr.replace("**", "^").replace(" ", "")
+    # time.sleep(10)
     return rstr
 
 

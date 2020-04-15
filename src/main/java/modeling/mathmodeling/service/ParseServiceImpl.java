@@ -13,6 +13,7 @@ public class ParseServiceImpl implements ParseService {
 
     @Override
     public HashMap<String, Double> getTermsFromString(String input) {
+        ArrayList<String> numericFactors = new ArrayList<>();
         HashMap<String, Double> terms = new HashMap<>();
         String output;
         input = input.replaceAll(" ", "");
@@ -39,7 +40,7 @@ public class ParseServiceImpl implements ParseService {
                 }
                 ArrayList<String> factors = splitAndSkipInsideBrackets(output, '*');
                 double numeric = Double.parseDouble(carriageCharacter + "1.0");
-                ArrayList<String> numericFactors = new ArrayList<>();
+                numericFactors.clear();
                 for(String factor: factors)
                 {
                     if(NumberUtils.isCreatable(factor))

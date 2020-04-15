@@ -55,4 +55,8 @@ public class InputDTO {
     private double b1;
     @JsonProperty("isedgeenabled")
     private boolean isEdgeEnabled;
+    @JsonProperty("edgex")
+    private int edgeX;
+    @JsonProperty("edgey")
+    private int edgeY;
 }

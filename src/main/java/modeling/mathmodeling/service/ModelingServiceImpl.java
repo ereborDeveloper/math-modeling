@@ -11,7 +11,6 @@ import org.matheclipse.core.eval.ExprEvaluator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.*;
 
 import static modeling.mathmodeling.storage.Settings.getAvailableCores;
 
@@ -30,7 +29,7 @@ public class ModelingServiceImpl implements ModelingService {
     final
     LogService logService;
 
-    private ExprEvaluator util = new ExprEvaluator(true, 500000);
+    private ExprEvaluator util = new ExprEvaluator(true, 50000);
 
     private int shellIndex;
     private double r1;
@@ -42,6 +41,13 @@ public class ModelingServiceImpl implements ModelingService {
     private String[] coefficientsArray;
     private LinkedList<String> coefficients;
 
+    private String fPart = "";
+    private String sPart = "";
+    private String jPart = "";
+
+    private String A;
+    private String B;
+
     LinkedHashMap<String, Double> grail;
 
     public ModelingServiceImpl(PyMathService pyMathService, ParseService parseService, MathMatrixService mathMatrixService, LogService logService) {
@@ -52,11 +58,7 @@ public class ModelingServiceImpl implements ModelingService {
     }
 
     public String edge(Double F, Double S, Double J) {
-        return " (" + F + " * (G * (eX + mu21 * eY) * eX + G * (eY + mu12 * eX) * eY + G * gammaXY * gammaXY + " +
-                "G * k * (PsiX - Theta1) * (PsiX - Theta1) + G * k * (PsiY - Theta2) * (PsiY - Theta2)) + " +
-                S + " * (G * (Chi1 + mu21 * Chi2) * eX + " +
-                "G * (Chi2 + mu12 * Chi1) * eY + G * (eX + mu21 * eY) * Chi1 + G * (eY + mu12 * eX) * Chi2 + 4 * G * Chi12 * gammaXY) + " +
-                J + "* (G * (Chi1 + mu21 * Chi2) * Chi1 + G * (Chi2 + mu12 * Chi1) * Chi2 + 4 * G * Chi12 * Chi12)) * A * B";
+        return StringUtils.replace(fPart, "fff", F.toString()) + "+" + StringUtils.replace(sPart, "sss", S.toString()) + "+" + StringUtils.replace(jPart, "jjj", J.toString());
     }
 
     @Override
@@ -99,9 +101,6 @@ public class ModelingServiceImpl implements ModelingService {
         util.eval("E1 := " + E1);
         util.eval("E2 := " + E2);
 
-        util.eval("mu12 := " + mu12);
-        util.eval("mu21 := " + mu21);
-
         util.eval("h := " + h);
 
         double z = input.getZ();
@@ -119,48 +118,75 @@ public class ModelingServiceImpl implements ModelingService {
         double b = input.getB1();
         util.eval("b := " + b);
 
-        util.eval("G := " + G);
-
         defineApprox(a, b);
 
-        util.eval("Theta1 := -(D(W, xx) / A + kx * U)");
-        util.eval("Theta2 := -(D(W, yy) / B + ky * V)");
+        util.eval("Theta1 := -(D(W, xx) / " + A + " + kx * U)");
+        util.eval("Theta2 := -(D(W, yy) / " + B + " + ky * V)");
 
         // Деформация изменения
-        util.eval("eX := (D(U, xx) / A + D(A, yy) * V / (A * B) - kx * W + 0.5 * (Theta1 * Theta1))");
-        util.eval("eY := (D(V, yy) / B + D(B, xx) * U / (A * B) - ky * W + 0.5 * (Theta2 * Theta2))");
+        util.eval("eX := (D(U, xx) / " + A + " + D(" + A + ", yy) * V / (" + A + " * " + B + ") - kx * W + 0.5 * (Theta1 * Theta1))");
+        util.eval("eY := (D(V, yy) / " + B + " + D(" + B + ", xx) * U / (" + A + " * " + B + ") - ky * W + 0.5 * (Theta2 * Theta2))");
 
         // Кривизна кручения
-        util.eval("gammaXY := (D(V, xx) / A + D(U, yy) / B - D(A, yy) * U / (A * B) - D(B, xx) * V / (A * B) + Theta1 * Theta2)");
+        util.eval("gammaXY := (D(V, xx) / " + A + " + D(U, yy) / " + B + " - D(" + A + ", yy) * U / (" + A + " * " + B + ") - D(" + B + ", xx) * V / (" + A + " * " + B + ") + Theta1 * Theta2)");
         util.eval("gammaXZ := (k * f(z) * (PsiX - Theta1))");
         util.eval("gammaYZ := (k * f(z) * (PsiY - Theta2))");
 
-        util.eval("Chi1 := (D(PsiX, xx) / A + D(A, yy) * PsiY / (A * B))");
-        util.eval("Chi2 := (D(PsiY, yy) / B + D(B, xx) * PsiX / (A * B))");
-        util.eval("Chi12 := 0.5 * (D(PsiY, xx) / A  + D(PsiX, yy) / B - (D(A, yy) * PsiX + D(B, xx) * PsiY)/(A * B))");
+        util.eval("Chi1 := (D(PsiX, xx) / " + A + " + D(" + A + ", yy) * PsiY / (" + A + " * " + B + "))");
+        util.eval("Chi2 := (D(PsiY, yy) / " + B + " + D(" + B + ", xx) * PsiX / (" + A + " * " + B + "))");
+        util.eval("Chi12 := 0.5 * (D(PsiY, xx) / " + A + "  + D(PsiX, yy) / " + B + " - (D(" + A + ", yy) * PsiX + D(" + B + ", xx) * PsiY)/(" + A + " * " + B + "))");
 
 //        Усилия и моменты
-        util.eval("MX := (" + E1 * Math.pow(h, 3) / (12 * (1 - mu12 * mu21)) + " * (Chi1 + mu21 * Chi2))");
-        util.eval("MY := (" + E2 * Math.pow(h, 3) / (12 * (1 - mu12 * mu21)) + " * (Chi2 + mu12 * Chi1))");
+        util.eval("MX := (" + E1 * Math.pow(h, 3) / (12 * (1 - mu12 * mu21)) + " * (Chi1 + " + mu21 + " * Chi2))");
+        util.eval("MY := (" + E2 * Math.pow(h, 3) / (12 * (1 - mu12 * mu21)) + " * (Chi2 + " + mu12 + " * Chi1))");
         util.eval("MXY := (" + G * Math.pow(h, 3) / 6 + " * Chi12)");
         util.eval("MYX := MXY");
         util.eval("NX := (" + E1 * h / (1 - mu12 * mu21) + ") * (eX + " + mu21 + " * eY)");
         util.eval("NY := (" + E2 * h / (1 - mu12 * mu21) + ") * (eY + " + mu12 + " * eX)");
-        util.eval("NXY := G * h * gammaXY");
+        util.eval("NXY := " + G * h + " * gammaXY");
         util.eval("NYX := NXY");
 
         util.eval("PX := 0");
         util.eval("PY := 0");
 
-        util.eval("QX := G * (PsiX - Theta1) * k * h");
-        util.eval("QY := G * k * h * (PsiY - Theta2)");
+        util.eval("QX := " + G * k * h + " * (PsiX - Theta1)");
+        util.eval("QY := " + G * k * h + " * (PsiY - Theta2)");
 
-        String Es = "0.5 * NX * eX "
+        String NX = "(" + util.eval("NX").toString() + ")";
+        String NXY = "(" + util.eval("NXY").toString() + ")";
+        String NY = "(" + util.eval("NY").toString() + ")";
+        String NYX = "(" + util.eval("NYX").toString() + ")";
+
+        String MX = "(" + util.eval("MX").toString() + ")";
+        String MXY = "(" + util.eval("MXY").toString() + ")";
+        String MY = "(" + util.eval("MY").toString() + ")";
+        String MYX = "(" + util.eval("MYX").toString() + ")";
+
+        String QX = "(" + util.eval("QX").toString() + ")";
+        String QY = "(" + util.eval("QY").toString() + ")";
+
+        String eX = "(" + util.eval("eX").toString() + ")";
+        String eY = "(" + util.eval("eY").toString() + ")";
+
+        String gammaXY = "(" + util.eval("gammaXY").toString() + ")";
+
+        String PsiX = "(" + util.eval("PsiX").toString() + ")";
+        String PsiY = "(" + util.eval("PsiY").toString() + ")";
+
+        String Theta1 = "(" + util.eval("Theta1").toString() + ")";
+        String Theta2 = "(" + util.eval("Theta2").toString() + ")";
+
+        String Chi1 = "(" + util.eval("Chi1").toString() + ")";
+        String Chi2 = "(" + util.eval("Chi2").toString() + ")";
+        String Chi12 = "(" + util.eval("Chi12").toString() + ")";
+
+
+        String Es = "0.5 * " + NX + " * " + eX
                 +
-                " + 0.5 * NY * eY + 0.25 * NXY * gammaXY + 0.25 * NYX * gammaXY + " +
-                "0.5 * MX * Chi1 + 0.5 * MY * Chi2 + 0.5 * MXY * Chi12 + 0.5 * MYX * Chi12 + " +
-                "0.5 * Qx * PsiX - 0.5 * QX * Theta1 "
-                + "+ 0.5 * QY * PsiY - 0.5 * QY * Theta2 - q * W * A * B";
+                " + 0.5 * " + NY + " * " + eY + " + 0.25 * " + NXY + " * " + gammaXY + " + 0.25 * " + NYX + " * " + gammaXY + " + " +
+                "0.5 * " + MX + " * " + Chi1 + " + 0.5 * " + MY + " * " + Chi2 + " + 0.5 * " + MXY + " * " + Chi12 + " + 0.5 * " + MYX + " * " + Chi12 + " + " +
+                "0.5 * " + QX + " * " + PsiX + " - 0.5 * +" + QX + " * " + Theta1
+                + "+ 0.5 * " + QY + " * " + PsiY + " - 0.5 * " + QY + " * " + Theta2 + " - q * W * " + A + " * " + B;
 
         Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
 
@@ -173,111 +199,124 @@ public class ModelingServiceImpl implements ModelingService {
         logService.debug("Считаем интеграл в многопоточке");
         HashMap<String, Double> afterIntegrate = mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
 
+        logService.debug("Очищаем terms и Es");
+        terms.clear();
+        Es = "";
+
         // Ребро
-        int nn = 1;
-        int mm = 1;
+        int nn = input.getEdgeX();
+        int mm = input.getEdgeY();
         if (input.isEdgeEnabled()) {
             logService.debug("Считаем ребро");
-
             Double ri = 2 * h;
             Double rj = 2 * h;
-
             Double hi[] = new Double[nn];
             Double hj[] = new Double[mm];
             Double hij[][] = new Double[nn][mm];
-
             Double countXj = a / (mm + 1);
             Double countYi = b / (nn + 1);
-
             Double aa[] = new Double[mm];
             Double bb[] = new Double[mm];
             Double cc[] = new Double[nn];
             Double dd[] = new Double[nn];
-
             for (int i = 0; i < nn; i++) {
                 hi[i] = 3 * h;
                 cc[i] = countYi * (i + 1) - ri;
                 dd[i] = countYi * (i + 1) + ri;
             }
-
             for (int j = 0; j < mm; j++) {
                 hj[j] = 3 * h;
                 aa[j] = countXj * (j + 1) - rj;
                 bb[j] = countXj * (j + 1) + rj;
             }
-
             for (int i = 0; i < hi.length; i++) {
                 for (int j = 0; j < hj.length; j++) {
                     hij[i][j] = 3 * h;
                 }
             }
 
-            System.out.println(Arrays.toString(aa));
+            String F = A + " * " + B + " * fff * (" + G + " * (" + eX + " + " + mu21 + " * " + eY + ") * " + eX + " + " +
+                    G + " * (" + eY + " + " + mu12 + " * " + eX + ") * " + eY + " + " + G + " * " + gammaXY + "^2 + " +
+                    G * k + " * (" + PsiX + " - " + Theta1 + ")^2 + " +
+                    G * k + " * (" + PsiY + " - " + Theta2 + ")^2)";
+            String S = A + " * " + B + " * sss * (" + G + " * (" + Chi1 + " + " + mu21 + " * " + Chi2 + ") * " + eX + " + " +
+                    G + " * (" + Chi2 + " + " + mu12 + " * " + Chi1 + ") * " + eY + " + " +
+                    G + " * (" + eX + " + " + mu21 + " * " + eY + ") * " + Chi1 + " + " +
+                    G + " * (" + eY + " + " + mu12 + " * " + eX + ") * " + Chi2 + " + " +
+                    4 * G + " * " + Chi12 + " * " + gammaXY + ")";
+            String J = A + " * " + B + " * jjj * (" + G + " * (" + Chi1 + " + " + mu21 + " * " + Chi2 + ") * " + Chi1 + " + " +
+                    G + " * (" + Chi2 + " + " + mu12 + " * " + Chi1 + ") * " + Chi2 + " + " + 4 * G + " * " + Chi12 + "^2)";
 
-            HashMap<String, Double> A1Terms = new HashMap<>();
-            HashMap<String, Double> A2Terms = new HashMap<>();
-            HashMap<String, Double> A3Terms = new HashMap<>();
+            logService.debug("Ребро - раскрытие");
+            fPart = pyMathService.expand(StringUtils.replace(F, "\n", ""));
+            sPart = pyMathService.expand(StringUtils.replace(S, "\n", ""));
+            jPart = pyMathService.expand(StringUtils.replace(J, "\n", ""));
 
+            logService.debug("Ребро - цикл1");
             for (int i = 0; i < nn; i++) {
                 Double Si = hi[i] * (h + hi[i]) / 2;
                 Double Ji = 0.25 * h * h * hi[i] + 0.5 * h * Math.pow(hi[i], 2) + Math.pow(hi[i], 3) / 3;
                 Double Fi = hi[i];
-                String temp = "0.5 * " + edge(Fi, Si, Ji);
-                String evaluated = util.eval(temp).toString().replace("\n", "");
-                evaluated = pyMathService.expand(evaluated);
-                A1Terms.putAll(mathMatrixService.multithreadingIntegrate(parseService.getTermsFromString(evaluated), "yy", cc[i], dd[i]));
-                System.out.println(A1Terms);
+                logService.debug("Ребро - цикл1 terms");
+                String t = edge(Fi, Si, Ji);
+                terms = parseService.getTermsFromString(t);
+
+                logService.debug("Ребро - цикл1 интеграл");
+                mathMatrixService
+                        .multiply(mathMatrixService.multithreadingDoubleIntegrate(terms, "yy", cc[i], dd[i], "xx", a1, a), 0.5)
+                        .forEach((key, value) -> {
+                            if (afterIntegrate.containsKey(key)) {
+                                afterIntegrate.put(key, value + afterIntegrate.get(key));
+                            } else {
+                                afterIntegrate.put(key, value);
+                            }
+                        });
             }
+            logService.debug("Ребро - цикл2");
             for (int j = 0; j < mm; j++) {
                 Double Sj = hj[j] * (h + hj[j]) / 2;
                 Double Jj = 0.25 * h * h * hj[j] + 0.5 * h * Math.pow(hj[j], 2) + Math.pow(hj[j], 3) / 3;
                 Double Fj = hj[j];
-                String temp = "0.5 * " + edge(Fj, Sj, Jj);
-                String evaluated = util.eval(temp).toString().replace("\n", "");
-                evaluated = pyMathService.expand(evaluated);
-                A2Terms.putAll(mathMatrixService.multithreadingIntegrate(parseService.getTermsFromString(evaluated), "xx", aa[j], bb[j]));
+                String t = edge(Fj, Sj, Jj);
+                terms = parseService.getTermsFromString(t);
+                mathMatrixService
+                        .multiply(mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", aa[j], bb[j], "yy", 0.0, b), 0.5)
+                        .forEach((key, value) -> {
+                            if (afterIntegrate.containsKey(key)) {
+                                afterIntegrate.put(key, value + afterIntegrate.get(key));
+                            } else {
+                                afterIntegrate.put(key, value);
+                            }
+                        });
             }
+            logService.debug("Ребро - цикл3");
             for (int i = 0; i < nn; i++) {
                 for (int j = 0; j < mm; j++) {
                     Double Sij = hij[i][j] * (h + hij[i][j]) / 2;
                     Double Jij = 0.25 * h * h * hij[i][j] + 0.5 * h * Math.pow(hij[i][j], 2) + Math.pow(hij[i][j], 3) / 3;
                     Double Fij = hij[i][j];
-                    String temp = "- A * B * " + edge(Fij, Sij, Jij);
-                    String evaluated = util.eval(temp).toString().replace("\n", "");
-                    evaluated = pyMathService.expand(evaluated);
-                    A3Terms.putAll(mathMatrixService.multithreadingDoubleIntegrate(parseService.getTermsFromString(evaluated), "xx", aa[j], bb[j], "yy", cc[i], dd[i]));
+                    String t = edge(Fij, Sij, Jij);
+                    terms = parseService.getTermsFromString(t);
+                    mathMatrixService.multiply(mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", aa[j], bb[j], "yy", cc[i], dd[i]), Double.parseDouble("-" + util.eval(A + "*" + B)))
+                            .forEach((key, value) -> {
+                                if (afterIntegrate.containsKey(key)) {
+                                    afterIntegrate.put(key, value + afterIntegrate.get(key));
+                                } else {
+                                    afterIntegrate.put(key, value);
+                                }
+                            });
                 }
             }
-
-            HashMap<String, Double> Epr = mathMatrixService.multithreadingIntegrate(A1Terms, "xx", a1, a);
-            mathMatrixService.multithreadingIntegrate(A2Terms, "yy", 0.0, b).forEach((key, value) -> {
-                if (Epr.containsKey(key)) {
-                    Epr.put(key, value + Epr.get(key));
-                } else {
-                    Epr.put(key, value);
-                }
-            });
-
-            A3Terms.forEach((key, value) -> {
-                if (Epr.containsKey(key)) {
-                    Epr.put(key, value + Epr.get(key));
-                } else {
-                    Epr.put(key, value);
-                }
-            });
-
-            Epr.forEach((key, value) -> {
-                if (afterIntegrate.containsKey(key)) {
-                    afterIntegrate.put(key, value + afterIntegrate.get(key));
-                } else {
-                    afterIntegrate.put(key, value);
-                }
-            });
         }
-
+        fPart = "";
+        sPart = "";
+        jPart = "";
 
         logService.debug("Считаем градиент");
         HashMap<String, HashMap<String, Double>> gradient = mathMatrixService.multithreadingGradient(afterIntegrate, coefficients);
+
+        logService.debug("Очищаем afterIntegrate");
+        afterIntegrate.clear();
 
         logService.debug("Считаем Гесса");
         HashMap<String, HashMap<String, Double>> hessian = new HashMap<>();
@@ -312,8 +351,7 @@ public class ModelingServiceImpl implements ModelingService {
 
     @Override
     public void newtonMethodMatrix(String w, Double a, Double b, double eps, double qMax, double qStep,
-                                   int stepCount, int optimizationBreak, HashMap<
-            String, HashMap<String, Double>> gradient, HashMap<String, HashMap<String, Double>> hessian) {
+                                   int stepCount, int optimizationBreak, Map<String, HashMap<String, Double>> gradient, Map<String, HashMap<String, Double>> hessian) {
         grail = new LinkedHashMap<>();
         double[] computedGradient = new double[coefficients.size()];
         double[][] computedHessian = new double[coefficients.size()][coefficients.size()];
@@ -465,7 +503,7 @@ public class ModelingServiceImpl implements ModelingService {
     }
 
     private void defineA() {
-        String A = "1";
+        A = "1";
         switch (shellIndex) {
             case 0:
             case 1:
@@ -477,11 +515,10 @@ public class ModelingServiceImpl implements ModelingService {
                 A = "r";
                 break;
         }
-        util.eval("A := " + A);
     }
 
     private void defineB() {
-        String B = "1";
+        B = "1";
         switch (shellIndex) {
             case 0:
                 B = "1";
@@ -496,11 +533,9 @@ public class ModelingServiceImpl implements ModelingService {
                 B = "r * Sin(xx)";
                 break;
             case 4:
-                B = d + " + r * Sin(xx)";
+                B = "(" + d + " + r * Sin(xx))";
                 break;
         }
-        util.eval("B := " + B);
-
     }
 
     private void defineKx() {
@@ -589,52 +624,6 @@ public class ModelingServiceImpl implements ModelingService {
         util.eval("W := " + W);
         util.eval("PsiX := " + PsiX);
         util.eval("PsiY := " + PsiY);
-    }
-
-    public class ForkJoinSumCalculator extends RecursiveTask<Double> {
-
-        private final double q;
-        private final LinkedHashMap<String, Double> row;
-        public static final double THRESHOLD = 1;
-
-        private ForkJoinSumCalculator(LinkedHashMap<String, Double> row, Double q) {
-            this.q = q;
-            this.row = row;
-        }
-
-        @Override
-        protected Double compute() {
-            int size = row.size();
-            if (size <= THRESHOLD) {
-                return computeSequentially();
-            }
-            LinkedHashMap<String, Double> leftPartOfRow = new LinkedHashMap<>();
-            LinkedHashMap<String, Double> rightPartOfRow = new LinkedHashMap<>();
-            int i = 0;
-            for (String term : row.keySet()) {
-                if (i < size / 2) {
-                    leftPartOfRow.put(term, row.get(term));
-                } else {
-                    rightPartOfRow.put(term, row.get(term));
-                }
-                i++;
-            }
-
-            ForkJoinSumCalculator leftTask = new ForkJoinSumCalculator(leftPartOfRow, q);
-            leftTask.fork();
-            ForkJoinSumCalculator rightTask = new ForkJoinSumCalculator(rightPartOfRow, q);
-            double rightResult = rightTask.compute();
-            double leftResult = leftTask.join();
-            return leftResult + rightResult;
-        }
-
-        private double computeSequentially() {
-            double sum = 0;
-            for (String key : row.keySet()) {
-                sum += computeTerm(key, row.get(key), q, grail);
-            }
-            return sum;
-        }
     }
 
 }

@@ -124,6 +124,22 @@ class MathMatrixServiceImplTest {
     }
 
     @Test
+    void multithreadingDoubleIntegrate_degrees() {
+        HashMap<String, Double> in = parseService.getTermsFromString("Cos(0.5817764173314431*xx)*Sin(0.5817764173314431*xx)*Sin(0.5817764173314431*yy)^3*Sin(1.1635528346628863*xx)*psix11*u11*w11");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("psix11*u11*w11", 9.340743772074371E-4);
+        assertEquals(expected, mathMatrixService.multithreadingDoubleIntegrate(in, "xx", 2.52, 2.88, "yy", 2.52, 2.88));
+    }
+
+    @Test
+    void multithreadingDoubleIntegrate_degrees_2() {
+        HashMap<String, Double> in = parseService.getTermsFromString("Cos(0.5817764173314431*xx)*Cos(0.5817764173314431*yy)^2*Sin(0.5817764173314431*xx)*Sin(0.5817764173314431*yy)*Sin(1.1635528346628863*xx)*psix11*u11*w11");
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("psix11*u11*w11", 3.4143964984325277E-6);
+        assertEquals(expected, mathMatrixService.multithreadingDoubleIntegrate(in, "xx", 2.52, 2.88, "yy", 2.52, 2.88));
+    }
+
+    @Test
     void partialIntegrate() {
         HashMap<String, Double> in = new HashMap<>();
         in.put("u11", -2.0);
@@ -166,5 +182,19 @@ class MathMatrixServiceImplTest {
         expected.put("x", 125.0);
         assertEquals(expected, mathMatrixService.multithreadingIntegrate(in, "v12", 0, 5));
 
+    }
+
+    @Test
+    void multiply() {
+        HashMap<String, Double> in = new HashMap<>();
+        in.put("x", 20.0);
+        in.put("y", -10.0);
+        in.put("number", 10.0);
+
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("number", 25.0);
+        expected.put("x", 50.0);
+        expected.put("y", -25.0);
+        assertEquals(expected, mathMatrixService.multiply(in, 2.5));
     }
 }
