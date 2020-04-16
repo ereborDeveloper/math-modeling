@@ -16,7 +16,7 @@ To deploy this app you need:
 6. Download all Python packages needed in _init_.py.
 7. Run Java & Python main methods
 
-Java use port 9090, Python use port 5000.
+Java uses port 9090, Python uses port 5000. You can test it by using Postman or any HTTP clients.
 
 You can see unit tests to find out some examples. Backend provided with some basic logging in russian.
 <img src="https://sun9-3.userapi.com/GNrNMLNPEY2sCLvrEgnJK6qqp0mGcc-vPUV-4A/XfQZCIOVKqc.jpg" />
