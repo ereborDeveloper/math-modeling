@@ -12,8 +12,8 @@ To deploy this app you need:
 2. Import project into IDEA as Maven project, enable auto-import and download all dependencies
 3. Install Lombok plugin
 4. Download Python and Java SDK (if you haven't it on your PC)
-5. Configure projects in project structure. Set Python interpreter.
-6. Download all Python packages.
+5. Configure projects in project structure (Ctrl + Alt + Shift + S). Create Python module and set Python interpreter.
+6. Download all Python packages needed in _init_.py.
 7. Run Java & Python main methods
 
 You can see unit tests to find out some examples. Backend provided with some basic logging in russian.
