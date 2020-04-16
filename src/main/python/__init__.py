@@ -4,6 +4,8 @@ import symengine as sm
 from sympy import *
 import time
 
+from src.main.python.parse.Parse import Parse
+
 app = Flask(__name__)
 
 
@@ -35,11 +37,10 @@ def expand():
 @app.route('/expand-list', methods=['GET', 'POST'])
 def expandList():
     istr = request.form.get("input")
-    print(istr)
-    # estr = str(sm.expand(istr))
-    # rstr = estr.replace("**", "^").replace(" ", "")
-    # return rstr
-
+    estr = str(sm.expand(istr))
+    rstr = estr.replace("**", "^").replace(" ", "")
+    parse = Parse()
+    return parse.getTermsFromString(rstr)
 
 if __name__ == '__main__':
     app.run(debug=True)

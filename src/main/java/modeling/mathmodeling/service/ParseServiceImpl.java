@@ -14,6 +14,7 @@ public class ParseServiceImpl implements ParseService {
     @Override
     public HashMap<String, Double> getTermsFromString(String input) {
         ArrayList<String> numericFactors = new ArrayList<>();
+        ArrayList<String> factors;
         HashMap<String, Double> terms = new HashMap<>();
         String output;
         input = input.replaceAll(" ", "");
@@ -38,13 +39,11 @@ public class ParseServiceImpl implements ParseService {
                     endIndex = i;
                     output = input.substring(beginIndex, endIndex);
                 }
-                ArrayList<String> factors = splitAndSkipInsideBrackets(output, '*');
+                factors = splitAndSkipInsideBrackets(output, '*');
                 double numeric = Double.parseDouble(carriageCharacter + "1.0");
                 numericFactors.clear();
-                for(String factor: factors)
-                {
-                    if(NumberUtils.isCreatable(factor))
-                    {
+                for (String factor : factors) {
+                    if (NumberUtils.isCreatable(factor)) {
                         numericFactors.add(factor);
                         numeric *= Double.parseDouble(factor);
                     }
@@ -52,11 +51,9 @@ public class ParseServiceImpl implements ParseService {
                 factors.removeAll(numericFactors);
 
                 Collections.sort(factors);
-                if(factors.isEmpty())
-                {
+                if (factors.isEmpty()) {
                     output = "number";
-                }
-                else {
+                } else {
                     output = String.join("*", factors);
                 }
                 if (terms.containsKey(output)) {
@@ -76,7 +73,6 @@ public class ParseServiceImpl implements ParseService {
         }
         return terms;
     }
-
 
 
     @Override

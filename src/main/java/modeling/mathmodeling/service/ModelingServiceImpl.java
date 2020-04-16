@@ -41,10 +41,6 @@ public class ModelingServiceImpl implements ModelingService {
     private String[] coefficientsArray;
     private LinkedList<String> coefficients;
 
-    private String fPart = "";
-    private String sPart = "";
-    private String jPart = "";
-
     private String A;
     private String B;
 
@@ -55,10 +51,6 @@ public class ModelingServiceImpl implements ModelingService {
         this.parseService = parseService;
         this.mathMatrixService = mathMatrixService;
         this.logService = logService;
-    }
-
-    public String edge(Double F, Double S, Double J) {
-        return StringUtils.replace(fPart, "fff", F.toString()) + "+" + StringUtils.replace(sPart, "sss", S.toString()) + "+" + StringUtils.replace(jPart, "jjj", J.toString());
     }
 
     @Override
@@ -190,11 +182,8 @@ public class ModelingServiceImpl implements ModelingService {
 
         Es = StringUtils.replace(util.eval(Es).toString(), "\n", "");
 
-        logService.debug("Отправляем запрос");
-        Es = pyMathService.expand(Es);
-
-        logService.debug("Разбиваем на terms");
-        HashMap<String, Double> terms = parseService.getTermsFromString(Es);
+        logService.debug("Отправляем запрос и получаем слагаемые");
+        HashMap<String, Double> terms = parseService.getTermsFromString(pyMathService.expand(Es));
 
         logService.debug("Считаем интеграл в многопоточке");
         HashMap<String, Double> afterIntegrate = mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", a1, a, "yy", 0.0, b);
@@ -248,22 +237,33 @@ public class ModelingServiceImpl implements ModelingService {
                     G + " * (" + Chi2 + " + " + mu12 + " * " + Chi1 + ") * " + Chi2 + " + " + 4 * G + " * " + Chi12 + "^2)";
 
             logService.debug("Ребро - раскрытие");
-            fPart = pyMathService.expand(StringUtils.replace(F, "\n", ""));
-            sPart = pyMathService.expand(StringUtils.replace(S, "\n", ""));
-            jPart = pyMathService.expand(StringUtils.replace(J, "\n", ""));
+            HashMap<String, Double> fPart = parseService.getTermsFromString(pyMathService.expand(StringUtils.replace(F, "\n", "")));
+            HashMap<String, Double> sPart = parseService.getTermsFromString(pyMathService.expand(StringUtils.replace(S, "\n", "")));
+            HashMap<String, Double> jPart = parseService.getTermsFromString(pyMathService.expand(StringUtils.replace(J, "\n", "")));
 
-            logService.debug("Ребро - цикл1");
+            logService.debug("Ребро - цикл");
             for (int i = 0; i < nn; i++) {
                 Double Si = hi[i] * (h + hi[i]) / 2;
                 Double Ji = 0.25 * h * h * hi[i] + 0.5 * h * Math.pow(hi[i], 2) + Math.pow(hi[i], 3) / 3;
                 Double Fi = hi[i];
-                logService.debug("Ребро - цикл1 terms");
-                String t = edge(Fi, Si, Ji);
-                terms = parseService.getTermsFromString(t);
+                HashMap<String, Double> localTerms = new HashMap<>(mathMatrixService.replace(fPart, "fff", Fi.toString()));
+                mathMatrixService.replace(sPart, "sss", Si.toString()).forEach((key, value) -> {
+                    if (localTerms.containsKey(key)) {
+                        localTerms.put(key, value + localTerms.get(key));
+                    } else {
+                        localTerms.put(key, value);
+                    }
+                });
+                mathMatrixService.replace(jPart, "jjj", Ji.toString()).forEach((key, value) -> {
+                    if (localTerms.containsKey(key)) {
+                        localTerms.put(key, value + localTerms.get(key));
+                    } else {
+                        localTerms.put(key, value);
+                    }
+                });
 
-                logService.debug("Ребро - цикл1 интеграл");
                 mathMatrixService
-                        .multiply(mathMatrixService.multithreadingDoubleIntegrate(terms, "yy", cc[i], dd[i], "xx", a1, a), 0.5)
+                        .multiply(mathMatrixService.multithreadingDoubleIntegrate(localTerms, "yy", cc[i], dd[i], "xx", a1, a), 0.5)
                         .forEach((key, value) -> {
                             if (afterIntegrate.containsKey(key)) {
                                 afterIntegrate.put(key, value + afterIntegrate.get(key));
@@ -272,15 +272,29 @@ public class ModelingServiceImpl implements ModelingService {
                             }
                         });
             }
-            logService.debug("Ребро - цикл2");
             for (int j = 0; j < mm; j++) {
                 Double Sj = hj[j] * (h + hj[j]) / 2;
                 Double Jj = 0.25 * h * h * hj[j] + 0.5 * h * Math.pow(hj[j], 2) + Math.pow(hj[j], 3) / 3;
                 Double Fj = hj[j];
-                String t = edge(Fj, Sj, Jj);
-                terms = parseService.getTermsFromString(t);
+
+                HashMap<String, Double> localTerms = new HashMap<>(mathMatrixService.replace(fPart, "fff", Fj.toString()));
+                mathMatrixService.replace(sPart, "sss", Sj.toString()).forEach((key, value) -> {
+                    if (localTerms.containsKey(key)) {
+                        localTerms.put(key, value + localTerms.get(key));
+                    } else {
+                        localTerms.put(key, value);
+                    }
+                });
+                mathMatrixService.replace(jPart, "jjj", Jj.toString()).forEach((key, value) -> {
+                    if (localTerms.containsKey(key)) {
+                        localTerms.put(key, value + localTerms.get(key));
+                    } else {
+                        localTerms.put(key, value);
+                    }
+                });
+
                 mathMatrixService
-                        .multiply(mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", aa[j], bb[j], "yy", 0.0, b), 0.5)
+                        .multiply(mathMatrixService.multithreadingDoubleIntegrate(localTerms, "xx", aa[j], bb[j], "yy", 0.0, b), 0.5)
                         .forEach((key, value) -> {
                             if (afterIntegrate.containsKey(key)) {
                                 afterIntegrate.put(key, value + afterIntegrate.get(key));
@@ -289,15 +303,28 @@ public class ModelingServiceImpl implements ModelingService {
                             }
                         });
             }
-            logService.debug("Ребро - цикл3");
             for (int i = 0; i < nn; i++) {
                 for (int j = 0; j < mm; j++) {
                     Double Sij = hij[i][j] * (h + hij[i][j]) / 2;
                     Double Jij = 0.25 * h * h * hij[i][j] + 0.5 * h * Math.pow(hij[i][j], 2) + Math.pow(hij[i][j], 3) / 3;
                     Double Fij = hij[i][j];
-                    String t = edge(Fij, Sij, Jij);
-                    terms = parseService.getTermsFromString(t);
-                    mathMatrixService.multiply(mathMatrixService.multithreadingDoubleIntegrate(terms, "xx", aa[j], bb[j], "yy", cc[i], dd[i]), Double.parseDouble("-" + util.eval(A + "*" + B)))
+
+                    HashMap<String, Double> localTerms = new HashMap<>(mathMatrixService.replace(fPart, "fff", Fij.toString()));
+                    mathMatrixService.replace(sPart, "sss", Sij.toString()).forEach((key, value) -> {
+                        if (localTerms.containsKey(key)) {
+                            localTerms.put(key, value + localTerms.get(key));
+                        } else {
+                            localTerms.put(key, value);
+                        }
+                    });
+                    mathMatrixService.replace(jPart, "jjj", Jij.toString()).forEach((key, value) -> {
+                        if (localTerms.containsKey(key)) {
+                            localTerms.put(key, value + localTerms.get(key));
+                        } else {
+                            localTerms.put(key, value);
+                        }
+                    });
+                    mathMatrixService.multiply(mathMatrixService.multithreadingDoubleIntegrate(localTerms, "xx", aa[j], bb[j], "yy", cc[i], dd[i]), Double.parseDouble("-" + util.eval(A + "*" + B)))
                             .forEach((key, value) -> {
                                 if (afterIntegrate.containsKey(key)) {
                                     afterIntegrate.put(key, value + afterIntegrate.get(key));
@@ -308,9 +335,6 @@ public class ModelingServiceImpl implements ModelingService {
                 }
             }
         }
-        fPart = "";
-        sPart = "";
-        jPart = "";
 
         logService.debug("Считаем градиент");
         HashMap<String, HashMap<String, Double>> gradient = mathMatrixService.multithreadingGradient(afterIntegrate, coefficients);

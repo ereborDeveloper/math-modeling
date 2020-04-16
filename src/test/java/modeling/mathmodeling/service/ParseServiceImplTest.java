@@ -119,6 +119,16 @@ class ParseServiceImplTest {
     }
 
     @Test
+    void getTerms_pythonTest() {
+        String in = "1*a + b*2 - 0.1*a + a*0.3 + 0.4*b";
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("a", 1.2);
+        expected.put("b", 2.4);
+
+        assertEquals(expected, parseService.getTermsFromString(in));
+    }
+
+    @Test
     void expand() {
         String in = "x*Sin(x)^2.0";
         assertEquals("x*Sin(x)*Sin(x)", parseService.expandDegree(in));

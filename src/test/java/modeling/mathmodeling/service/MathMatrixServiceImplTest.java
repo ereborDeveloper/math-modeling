@@ -197,4 +197,18 @@ class MathMatrixServiceImplTest {
         expected.put("y", -25.0);
         assertEquals(expected, mathMatrixService.multiply(in, 2.5));
     }
+
+    @Test
+    void replace() {
+        HashMap<String, Double> in = new HashMap<>();
+        in.put("x*fff", 20.0);
+        in.put("y", -10.0);
+        in.put("number", 10.0);
+
+        HashMap<String, Double> expected = new HashMap<>();
+        expected.put("number", 25.0);
+        expected.put("x", 50.0);
+        expected.put("y", -25.0);
+        assertEquals(expected, mathMatrixService.replace(in, "fff", "0.5"));
+    }
 }
