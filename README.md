@@ -1,5 +1,5 @@
 # JPV-math (backend)
-JPV-math application serves to one purpose: get modeling of shell's deformation state.
+JPV-math application serves to one purpose: modeling of shell's deformation state.
 
 JPV-math backend consist of two services:
 1. Java service. It's REST Java Spring service, which purpose is to manage data, which come from <a href="https://github.com/ereborDeveloper/math-modeling-gui">frontend</a> service.
